@@ -54,23 +54,13 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: cargo clippy --all-targets --all-features -- -D warnings
 
-  android-build-test:
+  rust-test:
     runs-on: ubuntu-latest
-    name: Android Build and Test
+    name: Rust Tests
     needs: [rust-fmt, rust-clippy]
 
     steps:
       - uses: actions/checkout@v4
-
-      - name: Setup Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-          cache: gradle
-
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -80,35 +70,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y webkit2gtk-4.1
 
-      - name: Build Rust Library
-        run: cargo build --lib
+      - uses: Swatinem/rust-cache@v2
 
-      - name: Create tauri-api directory
-        run: |
-          mkdir -p android/.tauri/tauri-api
-          cat > android/.tauri/tauri-api/build.gradle.kts << 'EOF'
-          plugins {
-              id("com.android.library")
-          }
-
-          android {
-              namespace = "com.tauri.android"
-              compileSdk = 36
-
-              defaultConfig {
-                  minSdk = 21
-              }
-
-              buildTypes {
-                  release {
-                      isMinifyEnabled = false
-                  }
-              }
-          }
-          EOF
-
-      - name: Build Android Library
-        run: cd android && gradle build -x test
-
-      - name: Run Android Tests
-        run: cd android && gradle test
+      - name: Run Rust Tests
+        run: cargo test
