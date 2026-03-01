@@ -79,11 +79,23 @@ mod tests {
         let json = serde_json::to_string(&req).unwrap();
 
         // フィールド名が camelCase になっていることを確認
-        assert!(json.contains("\"triggerAtMs\""), "triggerAtMs が含まれない: {json}");
-        assert!(json.contains("\"alarmType\""),   "alarmType が含まれない: {json}");
-        assert!(json.contains("\"allowWhileIdle\""), "allowWhileIdle が含まれない: {json}");
+        assert!(
+            json.contains("\"triggerAtMs\""),
+            "triggerAtMs が含まれない: {json}"
+        );
+        assert!(
+            json.contains("\"alarmType\""),
+            "alarmType が含まれない: {json}"
+        );
+        assert!(
+            json.contains("\"allowWhileIdle\""),
+            "allowWhileIdle が含まれない: {json}"
+        );
         // snake_case が残っていないことを確認
-        assert!(!json.contains("trigger_at_ms"),  "snake_case が残っている: {json}");
+        assert!(
+            !json.contains("trigger_at_ms"),
+            "snake_case が残っている: {json}"
+        );
     }
 
     #[test]
@@ -216,7 +228,9 @@ mod tests {
 
     #[test]
     fn check_permission_response_true() {
-        let resp = CheckPermissionResponse { can_schedule_exact_alarms: true };
+        let resp = CheckPermissionResponse {
+            can_schedule_exact_alarms: true,
+        };
         let json = serde_json::to_string(&resp).unwrap();
         assert!(json.contains("\"canScheduleExactAlarms\":true"));
         let restored: CheckPermissionResponse = serde_json::from_str(&json).unwrap();
@@ -225,7 +239,9 @@ mod tests {
 
     #[test]
     fn check_permission_response_false() {
-        let resp = CheckPermissionResponse { can_schedule_exact_alarms: false };
+        let resp = CheckPermissionResponse {
+            can_schedule_exact_alarms: false,
+        };
         let json = serde_json::to_string(&resp).unwrap();
         let restored: CheckPermissionResponse = serde_json::from_str(&json).unwrap();
         assert!(!restored.can_schedule_exact_alarms);

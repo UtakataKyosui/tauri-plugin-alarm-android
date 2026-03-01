@@ -21,9 +21,7 @@ pub(crate) async fn cancel_alarm<R: Runtime>(
 }
 
 #[command]
-pub(crate) async fn list_alarms<R: Runtime>(
-    app: AppHandle<R>,
-) -> Result<ListAlarmsResponse> {
+pub(crate) async fn list_alarms<R: Runtime>(app: AppHandle<R>) -> Result<ListAlarmsResponse> {
     app.alerm().list_alarms()
 }
 
@@ -35,8 +33,6 @@ pub(crate) async fn check_exact_alarm_permission<R: Runtime>(
 }
 
 #[command]
-pub(crate) async fn open_exact_alarm_settings<R: Runtime>(
-    app: AppHandle<R>,
-) -> Result<()> {
+pub(crate) async fn open_exact_alarm_settings<R: Runtime>(app: AppHandle<R>) -> Result<()> {
     app.alerm().open_exact_alarm_settings()
 }
