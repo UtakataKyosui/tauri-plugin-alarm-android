@@ -301,3 +301,20 @@ cd android && ./gradlew test
 ```sh
 cd android && ./gradlew connectedAndroidTest
 ```
+
+---
+
+## リリース
+
+`v*` タグを push すると GitHub Actions が自動で npm publish します。
+
+```sh
+# package.json のバージョンを更新してからタグを作成・push
+git tag v0.2.0
+git push origin v0.2.0
+```
+
+### 初回セットアップ（メンテナ向け）
+
+1. https://www.npmjs.com → Access Tokens → **Generate New Token（Automation タイプ）**
+2. GitHub リポジトリの Settings → Secrets and variables → Actions → `NPM_TOKEN` に登録
