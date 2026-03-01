@@ -38,11 +38,13 @@ class BootReceiver : BroadcastReceiver() {
             val message = alarm.optString("message", "")
             val alarmType = parseAlarmType(alarm.optString("alarmType", "RTC_WAKEUP"))
             val exact = alarm.optBoolean("exact", true)
+            val soundUri = alarm.optString("soundUri", null)
 
             val alarmIntent = Intent(context, AlarmReceiver::class.java).apply {
                 putExtra("alarmId", id)
                 putExtra("title", title)
                 putExtra("message", message)
+                if (soundUri != null) putExtra("soundUri", soundUri)
             }
             val pendingIntent = PendingIntent.getBroadcast(
                 context, id, alarmIntent,
