@@ -60,6 +60,8 @@ class AlermPlugin(private val activity: Activity) : Plugin(activity) {
             ).apply {
                 description = "Scheduled alarm notifications"
                 enableVibration(true)
+                // 音声は AlarmReceiver の MediaPlayer で管理するため、チャンネル通知音はサイレントにして二重鳴動を防ぐ
+                setSound(null, null)
             }
             val nm = activity.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             nm.createNotificationChannel(channel)

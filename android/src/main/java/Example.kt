@@ -9,6 +9,7 @@ import android.content.Intent
 import android.media.AudioAttributes
 import android.media.MediaPlayer
 import android.media.RingtoneManager
+import android.net.Uri
 import android.os.Build
 import androidx.core.app.NotificationCompat
 
@@ -25,6 +26,7 @@ class AlarmReceiver : BroadcastReceiver() {
         val soundUri = intent.getStringExtra("soundUri")
 
         // Android 8+ では通知チャンネルが必要
+        // 音声は MediaPlayer で管理するため、チャンネルの通知音はサイレントにして二重鳴動を防ぐ
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 AlermPlugin.CHANNEL_ID,
@@ -33,6 +35,7 @@ class AlarmReceiver : BroadcastReceiver() {
             ).apply {
                 description = "Scheduled alarm notifications"
                 enableVibration(true)
+                setSound(null, null)
             }
             val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             nm.createNotificationChannel(channel)
@@ -69,38 +72,68 @@ class AlarmReceiver : BroadcastReceiver() {
         nm.notify(alarmId, notification)
     }
 
-    /** assets フォルダ内の音声ファイルを MediaPlayer で再生する。失敗時はデフォルト音にフォールバック。 */
+    /**
+     * assets フォルダ内の音声ファイルを MediaPlayer で再生する。失敗時はデフォルト音にフォールバック。
+     * - MediaPlayer を try 外で初期化し、catch で必ず release() する
+     * - AssetFileDescriptor は use {} で確実に close する
+     * - リスナーは prepare()/start() より前に設定し、短音声でも release() を取りこぼさない
+     */
     private fun playAssetSound(context: Context, soundUri: String) {
+        val mediaPlayer = MediaPlayer()
         try {
-            val afd = context.assets.openFd(soundUri)
-            val mediaPlayer = MediaPlayer().apply {
+            context.assets.openFd(soundUri).use { afd ->
+                mediaPlayer.apply {
+                    setAudioAttributes(
+                        AudioAttributes.Builder()
+                            .setUsage(AudioAttributes.USAGE_ALARM)
+                            .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                            .build()
+                    )
+                    setOnCompletionListener { it.release() }
+                    setOnErrorListener { mp, _, _ ->
+                        mp.release()
+                        true
+                    }
+                    setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
+                    prepare()
+                    start()
+                }
+            }
+        } catch (e: Exception) {
+            mediaPlayer.release()
+            // assets が見つからない場合はデフォルト音にフォールバック
+            playDefaultAlarmSound(context)
+        }
+    }
+
+    /**
+     * システムのデフォルトアラーム音を MediaPlayer で再生する。
+     * Ringtone は stop() を呼ばないと無限再生になるため、ワンショット再生できる MediaPlayer を使う。
+     * uri が null（デフォルト音未設定）の場合は無音で戻る。
+     */
+    private fun playDefaultAlarmSound(context: Context) {
+        val uri: Uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM) ?: return
+
+        val mediaPlayer = MediaPlayer()
+        try {
+            mediaPlayer.apply {
                 setAudioAttributes(
                     AudioAttributes.Builder()
                         .setUsage(AudioAttributes.USAGE_ALARM)
                         .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
                         .build()
                 )
-                setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
-                afd.close()
+                setOnCompletionListener { it.release() }
+                setOnErrorListener { mp, _, _ ->
+                    mp.release()
+                    true
+                }
+                setDataSource(context, uri)
                 prepare()
                 start()
             }
-            mediaPlayer.setOnCompletionListener { it.release() }
         } catch (e: Exception) {
-            // assets が見つからない場合はデフォルト音にフォールバック
-            playDefaultAlarmSound(context)
+            mediaPlayer.release()
         }
-    }
-
-    /** システムのデフォルトアラーム音を Ringtone で再生する。 */
-    private fun playDefaultAlarmSound(context: Context) {
-        val uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
-        val ringtone = RingtoneManager.getRingtone(context, uri)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            ringtone.audioAttributes = AudioAttributes.Builder()
-                .setUsage(AudioAttributes.USAGE_ALARM)
-                .build()
-        }
-        ringtone.play()
     }
 }
