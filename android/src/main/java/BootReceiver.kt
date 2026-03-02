@@ -73,54 +73,26 @@ class BootReceiver : BroadcastReceiver() {
             // 次回発火時刻を計算する
             // repeatDaysOfWeek を優先し、両立時は repeatIntervalMs を無視（setAlarm と同じ制約）
             val effectiveTrigger = when {
-                repeatDaysOfWeek != null ->
-                    nextTriggerForDaysOfWeek(originalTriggerAtMs, repeatDaysOfWeek, now)
+                repeatDaysOfWeek != null -> {
+                    try {
+                        nextTriggerForDaysOfWeek(originalTriggerAtMs, repeatDaysOfWeek, now)
+                    } catch (e: IllegalArgumentException) {
+                        continue // 不正な repeatDaysOfWeek のアラームは復元スキップ
+                    }
+                }
                 else ->
                     calculateEffectiveTriggerTime(triggerAtMs, repeatIntervalMs, now)
             }
 
-            // SharedPreferences の triggerAtMs を次回発火時刻に更新
-            val prefs = context.getSharedPreferences(AlermPlugin.PREFS_NAME, Context.MODE_PRIVATE)
-            val allAlarms = org.json.JSONObject(prefs.getString("alarms", "{}") ?: "{}")
-            val key = id.toString()
-            if (allAlarms.has(key)) {
-                allAlarms.getJSONObject(key).put("triggerAtMs", effectiveTrigger)
-                prefs.edit().putString("alarms", allAlarms.toString()).apply()
-            }
+            // SharedPreferences の triggerAtMs を次回発火時刻に同期的更新
+            updateAlarmTriggerTime(context, id, effectiveTrigger)
 
             when {
                 repeatIntervalMs != null && repeatDaysOfWeek == null -> {
                     // repeatDaysOfWeek が優先されるため、repeatIntervalMs は repeatDaysOfWeek がない場合のみ
                     alarmManager.setInexactRepeating(alarmType, effectiveTrigger, repeatIntervalMs, pendingIntent)
                 }
-                exact -> {
-                    when {
-                        Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-                            if (alarmManager.canScheduleExactAlarms()) {
-                                if (allowWhileIdle) {
-                                    alarmManager.setExactAndAllowWhileIdle(alarmType, effectiveTrigger, pendingIntent)
-                                } else {
-                                    alarmManager.setExact(alarmType, effectiveTrigger, pendingIntent)
-                                }
-                            } else {
-                                // パーミッション未付与 → 不正確なアラームにフォールバック
-                                if (allowWhileIdle) {
-                                    alarmManager.setAndAllowWhileIdle(alarmType, effectiveTrigger, pendingIntent)
-                                } else {
-                                    alarmManager.set(alarmType, effectiveTrigger, pendingIntent)
-                                }
-                            }
-                        }
-                        Build.VERSION.SDK_INT >= Build.VERSION_CODES.M -> {
-                            if (allowWhileIdle) {
-                                alarmManager.setExactAndAllowWhileIdle(alarmType, effectiveTrigger, pendingIntent)
-                            } else {
-                                alarmManager.setExact(alarmType, effectiveTrigger, pendingIntent)
-                            }
-                        }
-                        else -> alarmManager.setExact(alarmType, effectiveTrigger, pendingIntent)
-                    }
-                }
+                exact -> scheduleExactAlarm(alarmManager, alarmType, effectiveTrigger, pendingIntent, allowWhileIdle)
                 else -> {
                     if (allowWhileIdle && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                         alarmManager.setAndAllowWhileIdle(alarmType, effectiveTrigger, pendingIntent)

@@ -105,7 +105,7 @@ class AlarmReceiver : BroadcastReceiver() {
                 putExtra("alarmId", alarmId)
                 putExtra("title", title)
                 putExtra("message", message)
-                putExtra("alarmType", alarmType)
+                putExtra("alarmType", alarmTypeName)
                 putExtra("snoozeDurationMs", snoozeDurationMs)
                 putExtra("snoozeEnabled", true)
                 putExtra("snoozeLabel", snoozeLabel)
@@ -179,33 +179,7 @@ class AlarmReceiver : BroadcastReceiver() {
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
 
         when {
-            exact -> {
-                when {
-                    Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-                        if (alarmManager.canScheduleExactAlarms()) {
-                            if (allowWhileIdle) {
-                                alarmManager.setExactAndAllowWhileIdle(alarmType, nextTrigger, pendingIntent)
-                            } else {
-                                alarmManager.setExact(alarmType, nextTrigger, pendingIntent)
-                            }
-                        } else {
-                            if (allowWhileIdle) {
-                                alarmManager.setAndAllowWhileIdle(alarmType, nextTrigger, pendingIntent)
-                            } else {
-                                alarmManager.set(alarmType, nextTrigger, pendingIntent)
-                            }
-                        }
-                    }
-                    Build.VERSION.SDK_INT >= Build.VERSION_CODES.M -> {
-                        if (allowWhileIdle) {
-                            alarmManager.setExactAndAllowWhileIdle(alarmType, nextTrigger, pendingIntent)
-                        } else {
-                            alarmManager.setExact(alarmType, nextTrigger, pendingIntent)
-                        }
-                    }
-                    else -> alarmManager.setExact(alarmType, nextTrigger, pendingIntent)
-                }
-            }
+            exact -> scheduleExactAlarm(alarmManager, alarmType, nextTrigger, pendingIntent, allowWhileIdle)
             else -> {
                 if (allowWhileIdle && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                     alarmManager.setAndAllowWhileIdle(alarmType, nextTrigger, pendingIntent)
@@ -215,14 +189,8 @@ class AlarmReceiver : BroadcastReceiver() {
             }
         }
 
-        // SharedPreferences の triggerAtMs を次回時刻に更新
-        val prefs = context.getSharedPreferences(AlermPlugin.PREFS_NAME, Context.MODE_PRIVATE)
-        val all = org.json.JSONObject(prefs.getString("alarms", "{}") ?: "{}")
-        val key = alarmId.toString()
-        if (all.has(key)) {
-            all.getJSONObject(key).put("triggerAtMs", nextTrigger)
-            prefs.edit().putString("alarms", all.toString()).apply()
-        }
+        // SharedPreferences の triggerAtMs を次回時刻に同期的更新
+        updateAlarmTriggerTime(context, alarmId, nextTrigger)
     }
 
     /**

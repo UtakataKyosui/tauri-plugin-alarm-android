@@ -97,6 +97,21 @@ internal fun removeAlarm(context: Context, id: Int) {
     prefs.edit().putString("alarms", all.toString()).apply()
 }
 
+/**
+ * SharedPreferences 内の特定のアラームの triggerAtMs を同期的に更新する。
+ * 複数のレシーバや非同期処理が同時に書き込もうとした際の競合（Race condition）を防ぐ。
+ */
+@Synchronized
+internal fun updateAlarmTriggerTime(context: Context, id: Int, newTriggerTimeMs: Long) {
+    val prefs = context.getSharedPreferences(AlermPlugin.PREFS_NAME, Context.MODE_PRIVATE)
+    val all = JSONObject(prefs.getString("alarms", "{}") ?: "{}")
+    val key = id.toString()
+    if (all.has(key)) {
+        all.getJSONObject(key).put("triggerAtMs", newTriggerTimeMs)
+        prefs.edit().putString("alarms", all.toString()).apply()
+    }
+}
+
 /** SharedPreferences に保存されている全アラーム情報を取得する */
 internal fun getStoredAlarms(context: Context): List<JSONObject> {
     val prefs = context.getSharedPreferences(AlermPlugin.PREFS_NAME, Context.MODE_PRIVATE)
@@ -125,7 +140,7 @@ internal fun nextTriggerForDaysOfWeek(
 ): Long {
     require(days.isNotEmpty()) { "days must not be empty" }
     require(days.all { it in 0..6 }) { "days must be in range 0..6, got $days" }
-    val sortedDays = days.distinct()
+    val targetDays = days.toSet()
 
     val base = Calendar.getInstance().apply { timeInMillis = triggerAtMs }
     val baseHour = base.get(Calendar.HOUR_OF_DAY)
@@ -146,7 +161,7 @@ internal fun nextTriggerForDaysOfWeek(
         }
         // Calendar.DAY_OF_WEEK は 1=日〜7=土、アプリ曜日 = DAY_OF_WEEK - 1
         val appDayOfWeek = candidate.get(Calendar.DAY_OF_WEEK) - 1
-        if (appDayOfWeek in sortedDays && candidate.timeInMillis > fromMs) {
+        if (appDayOfWeek in targetDays && candidate.timeInMillis > fromMs) {
             return candidate.timeInMillis
         }
     }

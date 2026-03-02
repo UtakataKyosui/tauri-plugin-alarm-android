@@ -18,7 +18,9 @@ import app.tauri.plugin.JSArray
 import app.tauri.plugin.JSObject
 import app.tauri.plugin.Invoke
 import app.tauri.plugin.Plugin
+import app.tauri.plugin.Plugin
 import org.json.JSONObject
+import java.util.Calendar
 
 @InvokeArg
 class SetAlarmArgs {
@@ -95,12 +97,17 @@ class AlermPlugin(private val activity: Activity) : Plugin(activity) {
         // 曜日繰り返しの場合、発火時刻を次の指定曜日に必ず補正する
         val now = System.currentTimeMillis()
         val triggerAtMs = if (normalizedDays != null) {
-            val dayOfWeekAtTrigger = java.util.Calendar.getInstance().apply { timeInMillis = args.triggerAtMs }
-                .get(java.util.Calendar.DAY_OF_WEEK) - 1
+            val dayOfWeekAtTrigger = Calendar.getInstance().apply { timeInMillis = args.triggerAtMs }
+                .get(Calendar.DAY_OF_WEEK) - 1
             if (dayOfWeekAtTrigger in normalizedDays && args.triggerAtMs > now) {
                 args.triggerAtMs
             } else {
-                nextTriggerForDaysOfWeek(args.triggerAtMs, normalizedDays, now)
+                try {
+                    nextTriggerForDaysOfWeek(args.triggerAtMs, normalizedDays, now)
+                } catch (e: IllegalArgumentException) {
+                    invoke.reject("無効な repeatDaysOfWeek パラメータ: ${e.message}")
+                    return
+                }
             }
         } else {
             args.triggerAtMs
@@ -237,7 +244,7 @@ class AlermPlugin(private val activity: Activity) : Plugin(activity) {
             if (!alarm.isNull("snoozeDurationMs")) obj.put("snoozeDurationMs", alarm.getLong("snoozeDurationMs"))
             if (!alarm.isNull("snoozeLabel")) obj.put("snoozeLabel", alarm.getString("snoozeLabel"))
             if (alarm.has("repeatDaysOfWeek") && !alarm.isNull("repeatDaysOfWeek")) {
-                obj.put("repeatDaysOfWeek", alarm.getJSONArray("repeatDaysOfWeek"))
+                obj.put("repeatDaysOfWeek", JSArray.from(alarm.getJSONArray("repeatDaysOfWeek")))
             }
             arr.put(obj)
         }

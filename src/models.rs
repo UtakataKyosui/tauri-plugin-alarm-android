@@ -163,8 +163,19 @@ mod tests {
         );
 
         let restored: AlarmInfo = serde_json::from_str(&json).unwrap();
-        assert_eq!(restored.id, 42);
-        assert_eq!(restored.trigger_at_ms, 1_700_000_000_000);
+        // すべてのフィールドが round-trip されていることを検証する
+        assert_eq!(restored.id, info.id);
+        assert_eq!(restored.title, info.title);
+        assert_eq!(restored.message, info.message);
+        assert_eq!(restored.trigger_at_ms, info.trigger_at_ms);
+        assert_eq!(restored.alarm_type, info.alarm_type);
+        assert_eq!(restored.exact, info.exact);
+        assert_eq!(restored.repeat_interval_ms, info.repeat_interval_ms);
+        assert_eq!(restored.sound_uri, info.sound_uri);
+        assert_eq!(restored.snooze_enabled, info.snooze_enabled);
+        assert_eq!(restored.snooze_duration_ms, info.snooze_duration_ms);
+        assert_eq!(restored.snooze_label, info.snooze_label);
+        assert_eq!(restored.repeat_days_of_week, info.repeat_days_of_week);
     }
 
     #[test]
