@@ -1,4 +1,4 @@
-package com.plugin.alerm
+package com.plugin.alarm
 
 import android.app.AlarmManager
 import org.junit.Assert.assertEquals
@@ -12,7 +12,7 @@ import java.util.Calendar
  * Android デバイスや emulator は不要。
  * AlarmManager の定数は compile-time constant (int) なので JVM 上でも評価可能。
  */
-class AlermPluginUnitTest {
+class AlarmPluginUnitTest {
 
     // =========================================================================
     // parseAlarmType
@@ -389,20 +389,20 @@ class AlermPluginUnitTest {
     /** 0 はデフォルト値にフォールバック */
     @Test
     fun clampSnoozeDuration_zero_returnsDefault() {
-        assertEquals(AlermPlugin.DEFAULT_SNOOZE_DURATION_MS, clampSnoozeDuration(0L))
+        assertEquals(AlarmPlugin.DEFAULT_SNOOZE_DURATION_MS, clampSnoozeDuration(0L))
     }
 
     /** 負の値はデフォルト値にフォールバック */
     @Test
     fun clampSnoozeDuration_negative_returnsDefault() {
-        assertEquals(AlermPlugin.DEFAULT_SNOOZE_DURATION_MS, clampSnoozeDuration(-1L))
-        assertEquals(AlermPlugin.DEFAULT_SNOOZE_DURATION_MS, clampSnoozeDuration(-300_000L))
-        assertEquals(AlermPlugin.DEFAULT_SNOOZE_DURATION_MS, clampSnoozeDuration(Long.MIN_VALUE))
+        assertEquals(AlarmPlugin.DEFAULT_SNOOZE_DURATION_MS, clampSnoozeDuration(-1L))
+        assertEquals(AlarmPlugin.DEFAULT_SNOOZE_DURATION_MS, clampSnoozeDuration(-300_000L))
+        assertEquals(AlarmPlugin.DEFAULT_SNOOZE_DURATION_MS, clampSnoozeDuration(Long.MIN_VALUE))
     }
 
     /** null はデフォルト値を返す */
     @Test
     fun clampSnoozeDuration_null_returnsDefault() {
-        assertEquals(AlermPlugin.DEFAULT_SNOOZE_DURATION_MS, clampSnoozeDuration(null))
+        assertEquals(AlarmPlugin.DEFAULT_SNOOZE_DURATION_MS, clampSnoozeDuration(null))
     }
 }

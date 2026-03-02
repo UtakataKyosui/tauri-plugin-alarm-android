@@ -1,4 +1,4 @@
-package com.plugin.alerm
+package com.plugin.alarm
 
 import android.app.AlarmManager
 import android.app.NotificationChannel
@@ -52,8 +52,8 @@ class AlarmReceiver : BroadcastReceiver() {
         val exact = intent.getBooleanExtra("exact", true)
         val allowWhileIdle = intent.getBooleanExtra("allowWhileIdle", true)
         val snoozeEnabled = intent.getBooleanExtra("snoozeEnabled", false)
-        val snoozeDurationMs = intent.getLongExtra("snoozeDurationMs", AlermPlugin.DEFAULT_SNOOZE_DURATION_MS)
-        val snoozeLabel = intent.getStringExtra("snoozeLabel") ?: AlermPlugin.DEFAULT_SNOOZE_LABEL
+        val snoozeDurationMs = intent.getLongExtra("snoozeDurationMs", AlarmPlugin.DEFAULT_SNOOZE_DURATION_MS)
+        val snoozeLabel = intent.getStringExtra("snoozeLabel") ?: AlarmPlugin.DEFAULT_SNOOZE_LABEL
         val repeatDaysOfWeek = intent.getIntArrayExtra("repeatDaysOfWeek")
         val originalTriggerAtMs = intent.getLongExtra("originalTriggerAtMs", -1L)
 
@@ -61,7 +61,7 @@ class AlarmReceiver : BroadcastReceiver() {
         // 音声は MediaPlayer で管理するため、チャンネルの通知音はサイレントにして二重鳴動を防ぐ
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
-                AlermPlugin.CHANNEL_ID,
+                AlarmPlugin.CHANNEL_ID,
                 "Alarms",
                 NotificationManager.IMPORTANCE_HIGH
             ).apply {
@@ -91,7 +91,7 @@ class AlarmReceiver : BroadcastReceiver() {
             PendingIntent.getActivity(context, alarmId, it, flags)
         }
 
-        val builder = NotificationCompat.Builder(context, AlermPlugin.CHANNEL_ID)
+        val builder = NotificationCompat.Builder(context, AlarmPlugin.CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
             .setContentTitle(title)
             .setContentText(message)

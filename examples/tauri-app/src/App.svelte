@@ -1,6 +1,6 @@
 <script>
   import Greet from './lib/Greet.svelte'
-  import { ping } from 'tauri-plugin-alerm-api'
+  import { ping } from 'tauri-plugin-alarm-api'
 
 	let response = $state('')
 

@@ -1,4 +1,4 @@
-package com.plugin.alerm
+package com.plugin.alarm
 
 import android.app.AlarmManager
 import android.content.Context
@@ -27,13 +27,13 @@ class AlarmStorageInstrumentedTest {
 
     @Before
     fun clearStorage() {
-        context.getSharedPreferences(AlermPlugin.PREFS_NAME, Context.MODE_PRIVATE)
+        context.getSharedPreferences(AlarmPlugin.PREFS_NAME, Context.MODE_PRIVATE)
             .edit().clear().commit()
     }
 
     @After
     fun tearDown() {
-        context.getSharedPreferences(AlermPlugin.PREFS_NAME, Context.MODE_PRIVATE)
+        context.getSharedPreferences(AlarmPlugin.PREFS_NAME, Context.MODE_PRIVATE)
             .edit().clear().commit()
     }
 

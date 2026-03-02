@@ -1,4 +1,4 @@
-package com.plugin.alerm
+package com.plugin.alarm
 
 import android.app.AlarmManager
 import android.app.NotificationManager
@@ -27,7 +27,7 @@ class SnoozeReceiver : BroadcastReceiver() {
         if (alarmId == -1) return  // 不正な alarmId は処理しない
 
         // SharedPreferences から現在の alarm 情報を取得
-        val prefs = context.getSharedPreferences(AlermPlugin.PREFS_NAME, Context.MODE_PRIVATE)
+        val prefs = context.getSharedPreferences(AlarmPlugin.PREFS_NAME, Context.MODE_PRIVATE)
         val allJson = prefs.getString("alarms", "{}") ?: "{}"
         val alarm: JSONObject? = runCatching {
             JSONObject(allJson).optJSONObject(alarmId.toString())
@@ -43,8 +43,8 @@ class SnoozeReceiver : BroadcastReceiver() {
             alarm?.optLong("snoozeDurationMs", 0L)?.takeIf { it > 0L }
                 ?: intent.getLongExtra("snoozeDurationMs", 0L).takeIf { it > 0L }
         )
-        val snoozeLabel = alarm?.optString("snoozeLabel", AlermPlugin.DEFAULT_SNOOZE_LABEL)
-            ?: intent.getStringExtra("snoozeLabel") ?: AlermPlugin.DEFAULT_SNOOZE_LABEL
+        val snoozeLabel = alarm?.optString("snoozeLabel", AlarmPlugin.DEFAULT_SNOOZE_LABEL)
+            ?: intent.getStringExtra("snoozeLabel") ?: AlarmPlugin.DEFAULT_SNOOZE_LABEL
         val allowWhileIdle = alarm?.optBoolean("allowWhileIdle", true)
             ?: intent.getBooleanExtra("allowWhileIdle", true)
 

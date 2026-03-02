@@ -126,7 +126,7 @@ export interface CheckPermissionResult {
  * ```
  */
 export async function setAlarm(options: SetAlarmOptions): Promise<AlarmInfo> {
-  return await invoke<AlarmInfo>('plugin:alerm|set_alarm', {
+  return await invoke<AlarmInfo>('plugin:alarm|set_alarm', {
     payload: options,
   })
 }
@@ -137,7 +137,7 @@ export async function setAlarm(options: SetAlarmOptions): Promise<AlarmInfo> {
  * @param id キャンセルするアラームの ID
  */
 export async function cancelAlarm(id: number): Promise<void> {
-  await invoke<void>('plugin:alerm|cancel_alarm', {
+  await invoke<void>('plugin:alarm|cancel_alarm', {
     payload: { id },
   })
 }
@@ -146,7 +146,7 @@ export async function cancelAlarm(id: number): Promise<void> {
  * 現在スケジュールされているアラームの一覧を取得する。
  */
 export async function listAlarms(): Promise<AlarmInfo[]> {
-  const result = await invoke<{ alarms: AlarmInfo[] }>('plugin:alerm|list_alarms', {
+  const result = await invoke<{ alarms: AlarmInfo[] }>('plugin:alarm|list_alarms', {
     payload: {},
   })
   return result.alarms
@@ -160,7 +160,7 @@ export async function listAlarms(): Promise<AlarmInfo[]> {
  */
 export async function checkExactAlarmPermission(): Promise<CheckPermissionResult> {
   return await invoke<CheckPermissionResult>(
-    'plugin:alerm|check_exact_alarm_permission',
+    'plugin:alarm|check_exact_alarm_permission',
     { payload: {} }
   )
 }
@@ -177,7 +177,7 @@ export async function checkExactAlarmPermission(): Promise<CheckPermissionResult
  * ```
  */
 export async function openExactAlarmSettings(): Promise<void> {
-  await invoke<void>('plugin:alerm|open_exact_alarm_settings', {
+  await invoke<void>('plugin:alarm|open_exact_alarm_settings', {
     payload: {},
   })
 }

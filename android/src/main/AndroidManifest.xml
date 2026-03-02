@@ -16,17 +16,17 @@
         <!-- アラームが発火したときに通知を表示する BroadcastReceiver -->
         <!-- AlarmManager の PendingIntent 経由で受信するため exported="false" で OK -->
         <receiver
-            android:name="com.plugin.alerm.AlarmReceiver"
+            android:name="com.plugin.alarm.AlarmReceiver"
             android:exported="false" />
 
         <!-- スヌーズボタンタップ時に通知を消して再スケジュールする BroadcastReceiver -->
         <receiver
-            android:name="com.plugin.alerm.SnoozeReceiver"
+            android:name="com.plugin.alarm.SnoozeReceiver"
             android:exported="false" />
 
         <!-- 端末再起動後にアラームを再スケジュールする BroadcastReceiver -->
         <receiver
-            android:name="com.plugin.alerm.BootReceiver"
+            android:name="com.plugin.alarm.BootReceiver"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />

@@ -6,14 +6,14 @@ use crate::models::*;
 pub fn init<R: Runtime, C: DeserializeOwned>(
     app: &AppHandle<R>,
     _api: PluginApi<R, C>,
-) -> crate::Result<Alerm<R>> {
-    Ok(Alerm(app.clone()))
+) -> crate::Result<Alarm<R>> {
+    Ok(Alarm(app.clone()))
 }
 
-/// Access to the alerm APIs.
-pub struct Alerm<R: Runtime>(AppHandle<R>);
+/// Access to the alarm APIs.
+pub struct Alarm<R: Runtime>(AppHandle<R>);
 
-impl<R: Runtime> Alerm<R> {
+impl<R: Runtime> Alarm<R> {
     pub fn set_alarm(&self, _payload: SetAlarmRequest) -> crate::Result<AlarmInfo> {
         Err(crate::Error::NotSupported)
     }

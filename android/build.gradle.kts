@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    namespace = "com.plugin.alerm"
+    namespace = "com.plugin.alarm"
     compileSdk = 36
 
     defaultConfig {

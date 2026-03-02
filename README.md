@@ -1,4 +1,4 @@
-# tauri-plugin-alerm
+# tauri-plugin-alarm
 
 Android のネイティブ [`AlarmManager`](https://developer.android.com/reference/android/app/AlarmManager) API を Tauri アプリから利用するプラグインです。指定した時刻にアラームを設定し、発火時にシステム通知を表示します。
 
@@ -22,7 +22,7 @@ Android のネイティブ [`AlarmManager`](https://developer.android.com/refere
 
 ```toml
 [dependencies]
-tauri-plugin-alerm = { path = "../../tauri-plugin-alerm" }
+tauri-plugin-alarm = { path = "../../tauri-plugin-alarm" }
 ```
 
 ### 2. プラグインを Tauri に登録
@@ -32,7 +32,7 @@ tauri-plugin-alerm = { path = "../../tauri-plugin-alerm" }
 ```rust
 pub fn run() {
     tauri::Builder::default()
-        .plugin(tauri_plugin_alerm::init())
+        .plugin(tauri_plugin_alarm::init())
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
@@ -45,7 +45,7 @@ pub fn run() {
 ```json
 {
   "plugins": {
-    "alerm": {
+    "alarm": {
       "permissions": [
         "allow-set_alarm",
         "allow-cancel_alarm",
@@ -61,9 +61,9 @@ pub fn run() {
 ### 4. フロントエンド API のインストール
 
 ```sh
-npm install tauri-plugin-alerm-api
+npm install tauri-plugin-alarm-api
 # または
-pnpm add tauri-plugin-alerm-api
+pnpm add tauri-plugin-alarm-api
 ```
 
 ---
@@ -101,7 +101,7 @@ if (!canScheduleExactAlarms) {
 アラームをスケジュールします。同じ `id` で呼び出すと既存のアラームを上書きします。
 
 ```typescript
-import { setAlarm } from 'tauri-plugin-alerm-api'
+import { setAlarm } from 'tauri-plugin-alarm-api'
 
 const alarm = await setAlarm({
   id: 1,
@@ -140,7 +140,7 @@ const alarm = await setAlarm({
 スケジュール済みのアラームをキャンセルします。
 
 ```typescript
-import { cancelAlarm } from 'tauri-plugin-alerm-api'
+import { cancelAlarm } from 'tauri-plugin-alarm-api'
 
 await cancelAlarm(1)
 ```
@@ -152,7 +152,7 @@ await cancelAlarm(1)
 現在スケジュールされているすべてのアラームを返します。
 
 ```typescript
-import { listAlarms } from 'tauri-plugin-alerm-api'
+import { listAlarms } from 'tauri-plugin-alarm-api'
 
 const alarms = await listAlarms()
 alarms.forEach(a => console.log(a.id, a.title, new Date(a.triggerAtMs)))
@@ -177,7 +177,7 @@ alarms.forEach(a => console.log(a.id, a.title, new Date(a.triggerAtMs)))
 正確なアラームをスケジュールする権限があるか確認します。Android 11 以下では常に `true` を返します。
 
 ```typescript
-import { checkExactAlarmPermission } from 'tauri-plugin-alerm-api'
+import { checkExactAlarmPermission } from 'tauri-plugin-alarm-api'
 
 const { canScheduleExactAlarms } = await checkExactAlarmPermission()
 console.log(canScheduleExactAlarms) // true / false
@@ -190,7 +190,7 @@ console.log(canScheduleExactAlarms) // true / false
 正確なアラームの権限設定画面を開きます（Android 12 以上のみ有効）。Android 11 以下では何もしません。
 
 ```typescript
-import { openExactAlarmSettings } from 'tauri-plugin-alerm-api'
+import { openExactAlarmSettings } from 'tauri-plugin-alarm-api'
 
 await openExactAlarmSettings()
 ```
@@ -202,7 +202,7 @@ await openExactAlarmSettings()
 ### 基本的なアラームの設定とキャンセル
 
 ```typescript
-import { setAlarm, cancelAlarm, listAlarms } from 'tauri-plugin-alerm-api'
+import { setAlarm, cancelAlarm, listAlarms } from 'tauri-plugin-alarm-api'
 
 // 1 分後にアラームをセット
 await setAlarm({
@@ -227,7 +227,7 @@ import {
   checkExactAlarmPermission,
   openExactAlarmSettings,
   setAlarm,
-} from 'tauri-plugin-alerm-api'
+} from 'tauri-plugin-alarm-api'
 
 async function scheduleAlarm() {
   const { canScheduleExactAlarms } = await checkExactAlarmPermission()
@@ -251,7 +251,7 @@ async function scheduleAlarm() {
 ### 毎日繰り返すアラーム
 
 ```typescript
-import { setAlarm } from 'tauri-plugin-alerm-api'
+import { setAlarm } from 'tauri-plugin-alarm-api'
 
 // 毎日この時刻から 24 時間ごとに発火
 await setAlarm({

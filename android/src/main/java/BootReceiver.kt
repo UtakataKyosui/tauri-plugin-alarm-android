@@ -1,4 +1,4 @@
-package com.plugin.alerm
+package com.plugin.alarm
 
 import android.app.AlarmManager
 import android.app.PendingIntent
@@ -46,8 +46,8 @@ class BootReceiver : BroadcastReceiver() {
             val allowWhileIdle = alarm.optBoolean("allowWhileIdle", true)
             val soundUri = alarm.optString("soundUri", null)
             val snoozeEnabled = alarm.optBoolean("snoozeEnabled", false)
-            val snoozeDurationMs = alarm.optLong("snoozeDurationMs", AlermPlugin.DEFAULT_SNOOZE_DURATION_MS)
-            val snoozeLabel = alarm.optString("snoozeLabel", AlermPlugin.DEFAULT_SNOOZE_LABEL)
+            val snoozeDurationMs = alarm.optLong("snoozeDurationMs", AlarmPlugin.DEFAULT_SNOOZE_DURATION_MS)
+            val snoozeLabel = alarm.optString("snoozeLabel", AlarmPlugin.DEFAULT_SNOOZE_LABEL)
 
             val alarmIntent = Intent(context, AlarmReceiver::class.java).apply {
                 putExtra("alarmId", id)

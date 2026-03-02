@@ -1,4 +1,4 @@
-package com.plugin.alerm
+package com.plugin.alarm
 
 import android.app.AlarmManager
 import android.app.PendingIntent
@@ -12,7 +12,7 @@ import java.util.Calendar
  * 通常アラームの PendingIntent（アクションなし）と区別するために設定し、
  * requestCode が同一でも別の PendingIntent として扱われるようにする。
  */
-internal const val SNOOZE_ALARM_ACTION = "com.plugin.alerm.ACTION_SNOOZE_ALARM"
+internal const val SNOOZE_ALARM_ACTION = "com.plugin.alarm.ACTION_SNOOZE_ALARM"
 
 /**
  * 正確なアラームをスケジュールする共通ユーティリティ。
@@ -83,7 +83,7 @@ internal fun buildPendingIntentFlags(baseFlag: Int): Int =
 
 /** SharedPreferences にアラーム情報を保存（上書き）する */
 internal fun saveAlarm(context: Context, id: Int, alarmInfo: JSONObject) {
-    val prefs = context.getSharedPreferences(AlermPlugin.PREFS_NAME, Context.MODE_PRIVATE)
+    val prefs = context.getSharedPreferences(AlarmPlugin.PREFS_NAME, Context.MODE_PRIVATE)
     val all = JSONObject(prefs.getString("alarms", "{}") ?: "{}")
     all.put(id.toString(), alarmInfo)
     prefs.edit().putString("alarms", all.toString()).apply()
@@ -91,7 +91,7 @@ internal fun saveAlarm(context: Context, id: Int, alarmInfo: JSONObject) {
 
 /** SharedPreferences からアラーム情報を削除する */
 internal fun removeAlarm(context: Context, id: Int) {
-    val prefs = context.getSharedPreferences(AlermPlugin.PREFS_NAME, Context.MODE_PRIVATE)
+    val prefs = context.getSharedPreferences(AlarmPlugin.PREFS_NAME, Context.MODE_PRIVATE)
     val all = JSONObject(prefs.getString("alarms", "{}") ?: "{}")
     all.remove(id.toString())
     prefs.edit().putString("alarms", all.toString()).apply()
@@ -103,7 +103,7 @@ internal fun removeAlarm(context: Context, id: Int) {
  */
 @Synchronized
 internal fun updateAlarmTriggerTime(context: Context, id: Int, newTriggerTimeMs: Long) {
-    val prefs = context.getSharedPreferences(AlermPlugin.PREFS_NAME, Context.MODE_PRIVATE)
+    val prefs = context.getSharedPreferences(AlarmPlugin.PREFS_NAME, Context.MODE_PRIVATE)
     val all = JSONObject(prefs.getString("alarms", "{}") ?: "{}")
     val key = id.toString()
     if (all.has(key)) {
@@ -114,7 +114,7 @@ internal fun updateAlarmTriggerTime(context: Context, id: Int, newTriggerTimeMs:
 
 /** SharedPreferences に保存されている全アラーム情報を取得する */
 internal fun getStoredAlarms(context: Context): List<JSONObject> {
-    val prefs = context.getSharedPreferences(AlermPlugin.PREFS_NAME, Context.MODE_PRIVATE)
+    val prefs = context.getSharedPreferences(AlarmPlugin.PREFS_NAME, Context.MODE_PRIVATE)
     val all = JSONObject(prefs.getString("alarms", "{}") ?: "{}")
     val result = mutableListOf<JSONObject>()
     val keys = all.keys()
@@ -192,7 +192,7 @@ internal fun calculateEffectiveTriggerTime(
 /**
  * スヌーズ持続時間のバリデーションを行い、安全な値を返す。
  * - 1ms 以上の正の値はそのまま返す
- * - 0 以下（負・ゼロ）または null の場合は [AlermPlugin.DEFAULT_SNOOZE_DURATION_MS] を返す
+ * - 0 以下（負・ゼロ）または null の場合は [AlarmPlugin.DEFAULT_SNOOZE_DURATION_MS] を返す
  */
 internal fun clampSnoozeDuration(durationMs: Long?): Long =
-    durationMs?.takeIf { it > 0L } ?: AlermPlugin.DEFAULT_SNOOZE_DURATION_MS
+    durationMs?.takeIf { it > 0L } ?: AlarmPlugin.DEFAULT_SNOOZE_DURATION_MS

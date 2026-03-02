@@ -22,7 +22,7 @@ Default permissions for the alarm plugin. Grants access to all alarm management 
 <tr>
 <td>
 
-`alerm:allow-cancel-alarm`
+`alarm:allow-cancel-alarm`
 
 </td>
 <td>
@@ -35,7 +35,7 @@ Enables the cancel_alarm command without any pre-configured scope.
 <tr>
 <td>
 
-`alerm:deny-cancel-alarm`
+`alarm:deny-cancel-alarm`
 
 </td>
 <td>
@@ -48,7 +48,7 @@ Denies the cancel_alarm command without any pre-configured scope.
 <tr>
 <td>
 
-`alerm:allow-check-exact-alarm-permission`
+`alarm:allow-check-exact-alarm-permission`
 
 </td>
 <td>
@@ -61,7 +61,7 @@ Enables the check_exact_alarm_permission command without any pre-configured scop
 <tr>
 <td>
 
-`alerm:deny-check-exact-alarm-permission`
+`alarm:deny-check-exact-alarm-permission`
 
 </td>
 <td>
@@ -74,7 +74,7 @@ Denies the check_exact_alarm_permission command without any pre-configured scope
 <tr>
 <td>
 
-`alerm:allow-list-alarms`
+`alarm:allow-list-alarms`
 
 </td>
 <td>
@@ -87,7 +87,7 @@ Enables the list_alarms command without any pre-configured scope.
 <tr>
 <td>
 
-`alerm:deny-list-alarms`
+`alarm:deny-list-alarms`
 
 </td>
 <td>
@@ -100,7 +100,7 @@ Denies the list_alarms command without any pre-configured scope.
 <tr>
 <td>
 
-`alerm:allow-open-exact-alarm-settings`
+`alarm:allow-open-exact-alarm-settings`
 
 </td>
 <td>
@@ -113,7 +113,7 @@ Enables the open_exact_alarm_settings command without any pre-configured scope.
 <tr>
 <td>
 
-`alerm:deny-open-exact-alarm-settings`
+`alarm:deny-open-exact-alarm-settings`
 
 </td>
 <td>
@@ -126,7 +126,7 @@ Denies the open_exact_alarm_settings command without any pre-configured scope.
 <tr>
 <td>
 
-`alerm:allow-set-alarm`
+`alarm:allow-set-alarm`
 
 </td>
 <td>
@@ -139,7 +139,7 @@ Enables the set_alarm command without any pre-configured scope.
 <tr>
 <td>
 
-`alerm:deny-set-alarm`
+`alarm:deny-set-alarm`
 
 </td>
 <td>
