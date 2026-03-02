@@ -5,6 +5,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.util.Calendar
 
 /**
  * ローカルユニットテスト（開発マシン上で実行）。
@@ -180,6 +181,196 @@ class AlermPluginUnitTest {
     }
 
     // =========================================================================
+    // nextTriggerForDaysOfWeek
+    // =========================================================================
+
+    /**
+     * テスト用ヘルパー: 指定した曜日・時刻の Calendar を作成する。
+     * @param dayOfWeek Calendar.SUNDAY～Calendar.SATURDAY
+     */
+    private fun calendarAt(dayOfWeek: Int, hour: Int, minute: Int, second: Int = 0): Calendar =
+        Calendar.getInstance().apply {
+            set(Calendar.DAY_OF_WEEK, dayOfWeek)
+            set(Calendar.HOUR_OF_DAY, hour)
+            set(Calendar.MINUTE, minute)
+            set(Calendar.SECOND, second)
+            set(Calendar.MILLISECOND, 0)
+        }
+
+    /**
+     * 次の月曜日の発火時刻が正しく計算されること。
+     * from が火曜日なら "来週月曜" が返る。
+     */
+    @Test
+    fun nextTriggerForDaysOfWeek_nextMonday_returnsCorrectTimestamp() {
+        // 火曜日の正午を "from" にセット（アプリ曜日: 2）
+        val from = calendarAt(Calendar.TUESDAY, 12, 0)
+        // triggerAtMs: 水曜 08:00 の時刻情報（時刻のベース）
+        val trigger = calendarAt(Calendar.WEDNESDAY, 8, 0)
+
+        val result = nextTriggerForDaysOfWeek(
+            triggerAtMs = trigger.timeInMillis,
+            days = listOf(1), // 月曜のみ
+            fromMs = from.timeInMillis,
+        )
+
+        val resultCal = Calendar.getInstance().apply { timeInMillis = result }
+        // 結果の曜日が月曜（Calendar.MONDAY = 2）であること
+        assertEquals(Calendar.MONDAY, resultCal.get(Calendar.DAY_OF_WEEK))
+        // 結果の時刻が triggerAtMs の時・分と一致すること
+        assertEquals(8, resultCal.get(Calendar.HOUR_OF_DAY))
+        assertEquals(0, resultCal.get(Calendar.MINUTE))
+        // 結果が from より未来であること
+        assertTrue(result > from.timeInMillis)
+    }
+
+    /**
+     * 複数の曜日が指定されたとき、最も近い曜日の発火時刻が返ること。
+     */
+    @Test
+    fun nextTriggerForDaysOfWeek_multipleDays_returnsNearest() {
+        // 月曜日 10:00 を "from" にセット
+        val from = calendarAt(Calendar.MONDAY, 10, 0)
+        // triggerAtMs: 月曜 07:00（今日の発火時刻より前 → 過去）
+        val trigger = calendarAt(Calendar.MONDAY, 7, 0)
+
+        // 月(1)・水(3)・金(5) → 次は水曜のはず
+        val result = nextTriggerForDaysOfWeek(
+            triggerAtMs = trigger.timeInMillis,
+            days = listOf(1, 3, 5),
+            fromMs = from.timeInMillis,
+        )
+
+        val resultCal = Calendar.getInstance().apply { timeInMillis = result }
+        assertEquals(Calendar.WEDNESDAY, resultCal.get(Calendar.DAY_OF_WEEK))
+        assertTrue(result > from.timeInMillis)
+    }
+
+    /**
+     * 毎日繰り返す場合、翌日が返ること。
+     */
+    @Test
+    fun nextTriggerForDaysOfWeek_allDays_returnsTomorrow() {
+        val from = calendarAt(Calendar.WEDNESDAY, 20, 0)
+        // 今日の 07:00 が triggerAtMs → 過去
+        val trigger = calendarAt(Calendar.WEDNESDAY, 7, 0)
+
+        val result = nextTriggerForDaysOfWeek(
+            triggerAtMs = trigger.timeInMillis,
+            days = listOf(0, 1, 2, 3, 4, 5, 6),
+            fromMs = from.timeInMillis,
+        )
+
+        val resultCal = Calendar.getInstance().apply { timeInMillis = result }
+        // 翌日（木曜）の 07:00 が返るはず
+        assertEquals(Calendar.THURSDAY, resultCal.get(Calendar.DAY_OF_WEEK))
+        assertTrue(result > from.timeInMillis)
+    }
+
+    /**
+     * days が空のとき IllegalArgumentException がスローされること。
+     */
+    @Test(expected = IllegalArgumentException::class)
+    fun nextTriggerForDaysOfWeek_emptyDays_throwsException() {
+        nextTriggerForDaysOfWeek(
+            triggerAtMs = System.currentTimeMillis(),
+            days = emptyList(),
+            fromMs = System.currentTimeMillis(),
+        )
+    }
+
+    /**
+     * 返る時刻は常に fromMs より未来であること。
+     */
+    @Test
+    fun nextTriggerForDaysOfWeek_result_isAlwaysFuture() {
+        val from = calendarAt(Calendar.FRIDAY, 23, 59)
+        val trigger = calendarAt(Calendar.FRIDAY, 6, 0)
+
+        // 金(5)のみ → 来週金曜が返るはず
+        val result = nextTriggerForDaysOfWeek(
+            triggerAtMs = trigger.timeInMillis,
+            days = listOf(5),
+            fromMs = from.timeInMillis,
+        )
+
+        assertTrue("result ($result) > from (${from.timeInMillis}) のはず", result > from.timeInMillis)
+    }
+
+    /**
+     * 返る時刻の時・分・秒が triggerAtMs の値と一致すること。
+     */
+    @Test
+    fun nextTriggerForDaysOfWeek_preservesTimeOfDay() {
+        val from = calendarAt(Calendar.SUNDAY, 0, 0)
+        val trigger = calendarAt(Calendar.MONDAY, 6, 30, 15)
+
+        val result = nextTriggerForDaysOfWeek(
+            triggerAtMs = trigger.timeInMillis,
+            days = listOf(1), // 月曜
+            fromMs = from.timeInMillis,
+        )
+
+        val resultCal = Calendar.getInstance().apply { timeInMillis = result }
+        assertEquals(6, resultCal.get(Calendar.HOUR_OF_DAY))
+        assertEquals(30, resultCal.get(Calendar.MINUTE))
+        assertEquals(15, resultCal.get(Calendar.SECOND))
+    }
+
+    /**
+     * 0..6 外の曜日値（例: -1, 7）を渡したとき IllegalArgumentException がスローされること。
+     */
+    @Test(expected = IllegalArgumentException::class)
+    fun nextTriggerForDaysOfWeek_invalidDayValue_throwsIllegalArgument() {
+        nextTriggerForDaysOfWeek(
+            triggerAtMs = System.currentTimeMillis(),
+            days = listOf(1, 7), // 7 は無効
+            fromMs = System.currentTimeMillis(),
+        )
+    }
+
+    /**
+     * 重複した曜日値を渡しても正しく動作すること（重複排除後に通常処理される）。
+     */
+    @Test
+    fun nextTriggerForDaysOfWeek_duplicateDays_deduplicates() {
+        // 月曜 10:00 を from にセット
+        val from = calendarAt(Calendar.MONDAY, 10, 0)
+        val trigger = calendarAt(Calendar.MONDAY, 7, 0)
+
+        // 月(1)・月(1) → 重複しているが次の水曜(3)が返るべき
+        val result = nextTriggerForDaysOfWeek(
+            triggerAtMs = trigger.timeInMillis,
+            days = listOf(1, 1, 3), // 1 が重複
+            fromMs = from.timeInMillis,
+        )
+
+        val resultCal = Calendar.getInstance().apply { timeInMillis = result }
+        assertEquals(Calendar.WEDNESDAY, resultCal.get(Calendar.DAY_OF_WEEK))
+        assertTrue(result > from.timeInMillis)
+    }
+
+    /**
+     * 同じ曜日のみ指定し、当日の時刻が既に過ぎている場合、offset=7（来週）が返ること。
+     */
+    @Test
+    fun nextTriggerForDaysOfWeek_singleDayAlreadyPassed_returnsNextWeek() {
+        // 金曜 23:59 を from にセット（金(5)のみ指定、今日の時刻は過ぎている）
+        val from = calendarAt(Calendar.FRIDAY, 23, 59)
+        val trigger = calendarAt(Calendar.FRIDAY, 6, 0)
+
+        val result = nextTriggerForDaysOfWeek(
+            triggerAtMs = trigger.timeInMillis,
+            days = listOf(5), // 金曜のみ
+            fromMs = from.timeInMillis,
+        )
+
+        val resultCal = Calendar.getInstance().apply { timeInMillis = result }
+        // 来週金曜が返るはず
+        assertEquals(Calendar.FRIDAY, resultCal.get(Calendar.DAY_OF_WEEK))
+        assertTrue(result > from.timeInMillis)
+        // 7日後以上
+        assertTrue(result >= from.timeInMillis + 6 * 24 * 60 * 60 * 1000L)
     // clampSnoozeDuration
     // =========================================================================
 

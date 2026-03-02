@@ -1,5 +1,6 @@
 package com.plugin.alerm
 
+import android.app.AlarmManager
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -47,10 +48,14 @@ class AlarmReceiver : BroadcastReceiver() {
         val title = intent.getStringExtra("title") ?: "Alarm"
         val message = intent.getStringExtra("message") ?: ""
         val soundUri = intent.getStringExtra("soundUri")
-        val alarmType = intent.getStringExtra("alarmType") ?: "RTC_WAKEUP"
+        val alarmTypeName = intent.getStringExtra("alarmType") ?: "RTC_WAKEUP"
+        val exact = intent.getBooleanExtra("exact", true)
+        val allowWhileIdle = intent.getBooleanExtra("allowWhileIdle", true)
         val snoozeEnabled = intent.getBooleanExtra("snoozeEnabled", false)
         val snoozeDurationMs = intent.getLongExtra("snoozeDurationMs", AlermPlugin.DEFAULT_SNOOZE_DURATION_MS)
         val snoozeLabel = intent.getStringExtra("snoozeLabel") ?: AlermPlugin.DEFAULT_SNOOZE_LABEL
+        val repeatDaysOfWeek = intent.getIntArrayExtra("repeatDaysOfWeek")
+        val originalTriggerAtMs = intent.getLongExtra("originalTriggerAtMs", -1L)
 
         // Android 8+ では通知チャンネルが必要
         // 音声は MediaPlayer で管理するため、チャンネルの通知音はサイレントにして二重鳴動を防ぐ
@@ -100,7 +105,7 @@ class AlarmReceiver : BroadcastReceiver() {
                 putExtra("alarmId", alarmId)
                 putExtra("title", title)
                 putExtra("message", message)
-                putExtra("alarmType", alarmType)
+                putExtra("alarmType", alarmTypeName)
                 putExtra("snoozeDurationMs", snoozeDurationMs)
                 putExtra("snoozeEnabled", true)
                 putExtra("snoozeLabel", snoozeLabel)
@@ -118,6 +123,74 @@ class AlarmReceiver : BroadcastReceiver() {
 
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         nm.notify(alarmId, notification)
+
+        // 曜日繰り返しの場合、次回の発火時刻を計算して再登録する（空配列クラッシュ防止）
+        if (repeatDaysOfWeek != null && repeatDaysOfWeek.isNotEmpty() && originalTriggerAtMs >= 0) {
+            rescheduleForNextDay(
+                context = context,
+                alarmId = alarmId,
+                title = title,
+                message = message,
+                soundUri = soundUri,
+                repeatDaysOfWeek = repeatDaysOfWeek.toList(),
+                originalTriggerAtMs = originalTriggerAtMs,
+                alarmTypeName = alarmTypeName,
+                exact = exact,
+                allowWhileIdle = allowWhileIdle,
+            )
+        }
+    }
+
+    private fun rescheduleForNextDay(
+        context: Context,
+        alarmId: Int,
+        title: String,
+        message: String,
+        soundUri: String?,
+        repeatDaysOfWeek: List<Int>,
+        originalTriggerAtMs: Long,
+        alarmTypeName: String,
+        exact: Boolean,
+        allowWhileIdle: Boolean,
+    ) {
+        val nextTrigger = nextTriggerForDaysOfWeek(
+            triggerAtMs = originalTriggerAtMs,
+            days = repeatDaysOfWeek,
+            fromMs = System.currentTimeMillis(),
+        )
+
+        val nextIntent = Intent(context, AlarmReceiver::class.java).apply {
+            putExtra("alarmId", alarmId)
+            putExtra("title", title)
+            putExtra("message", message)
+            if (soundUri != null) putExtra("soundUri", soundUri)
+            putExtra("alarmType", alarmTypeName)
+            putExtra("exact", exact)
+            putExtra("allowWhileIdle", allowWhileIdle)
+            putExtra("repeatDaysOfWeek", repeatDaysOfWeek.toIntArray())
+            putExtra("originalTriggerAtMs", originalTriggerAtMs)
+        }
+        val pendingIntent = PendingIntent.getBroadcast(
+            context, alarmId, nextIntent,
+            buildPendingIntentFlags(PendingIntent.FLAG_UPDATE_CURRENT)
+        )
+
+        val alarmType = parseAlarmType(alarmTypeName)
+        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+
+        when {
+            exact -> scheduleExactAlarm(alarmManager, alarmType, nextTrigger, pendingIntent, allowWhileIdle)
+            else -> {
+                if (allowWhileIdle && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    alarmManager.setAndAllowWhileIdle(alarmType, nextTrigger, pendingIntent)
+                } else {
+                    alarmManager.set(alarmType, nextTrigger, pendingIntent)
+                }
+            }
+        }
+
+        // SharedPreferences の triggerAtMs を次回時刻に同期的更新
+        updateAlarmTriggerTime(context, alarmId, nextTrigger)
     }
 
     /**

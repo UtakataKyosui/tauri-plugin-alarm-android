@@ -28,9 +28,15 @@ class BootReceiver : BroadcastReceiver() {
             val triggerAtMs = alarm.getLong("triggerAtMs")
             val repeatIntervalMs = if (alarm.isNull("repeatIntervalMs")) null
                                    else alarm.getLong("repeatIntervalMs")
+            // 空配列は null 扱い（repeatDaysOfWeek が空でもクラッシュしないよう正規化）
+            val repeatDaysOfWeek: List<Int>? = if (alarm.has("repeatDaysOfWeek") && !alarm.isNull("repeatDaysOfWeek")) {
+                val arr = alarm.getJSONArray("repeatDaysOfWeek")
+                if (arr.length() > 0) List(arr.length()) { arr.getInt(it) } else null
+            } else null
+            val originalTriggerAtMs = alarm.optLong("originalTriggerAtMs", triggerAtMs)
 
-            // 一度きりのアラームで既に過去のものはスキップ
-            if (triggerAtMs <= now && repeatIntervalMs == null) continue
+            // 一度きりのアラームで既に過去のものはスキップ（曜日繰り返しは常に復元）
+            if (triggerAtMs <= now && repeatIntervalMs == null && repeatDaysOfWeek == null) continue
 
             val title = alarm.optString("title", "Alarm")
             val message = alarm.optString("message", "")
@@ -53,22 +59,42 @@ class BootReceiver : BroadcastReceiver() {
                 putExtra("snoozeEnabled", snoozeEnabled)
                 putExtra("snoozeDurationMs", snoozeDurationMs)
                 putExtra("snoozeLabel", snoozeLabel)
+                putExtra("exact", exact)
+                if (repeatDaysOfWeek != null) {
+                    putExtra("repeatDaysOfWeek", repeatDaysOfWeek.toIntArray())
+                    putExtra("originalTriggerAtMs", originalTriggerAtMs)
+                }
             }
             val pendingIntent = PendingIntent.getBroadcast(
                 context, id, alarmIntent,
                 buildPendingIntentFlags(PendingIntent.FLAG_UPDATE_CURRENT)
             )
 
-            // 繰り返しアラームは次回発火時刻を再計算する
-            val effectiveTrigger = calculateEffectiveTriggerTime(triggerAtMs, repeatIntervalMs, now)
+            // 次回発火時刻を計算する
+            // repeatDaysOfWeek を優先し、両立時は repeatIntervalMs を無視（setAlarm と同じ制約）
+            val effectiveTrigger = when {
+                repeatDaysOfWeek != null -> {
+                    try {
+                        nextTriggerForDaysOfWeek(originalTriggerAtMs, repeatDaysOfWeek, now)
+                    } catch (e: IllegalArgumentException) {
+                        continue // 不正な repeatDaysOfWeek のアラームは復元スキップ
+                    }
+                }
+                else ->
+                    calculateEffectiveTriggerTime(triggerAtMs, repeatIntervalMs, now)
+            }
+
+            // SharedPreferences の triggerAtMs を次回発火時刻に同期的更新
+            updateAlarmTriggerTime(context, id, effectiveTrigger)
 
             when {
-                repeatIntervalMs != null ->
+                repeatIntervalMs != null && repeatDaysOfWeek == null -> {
+                    // repeatDaysOfWeek が優先されるため、repeatIntervalMs は repeatDaysOfWeek がない場合のみ
                     alarmManager.setInexactRepeating(alarmType, effectiveTrigger, repeatIntervalMs, pendingIntent)
-                exact ->
-                    scheduleExactAlarm(alarmManager, alarmType, effectiveTrigger, pendingIntent, allowWhileIdle)
+                }
+                exact -> scheduleExactAlarm(alarmManager, alarmType, effectiveTrigger, pendingIntent, allowWhileIdle)
                 else -> {
-                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+                    if (allowWhileIdle && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                         alarmManager.setAndAllowWhileIdle(alarmType, effectiveTrigger, pendingIntent)
                     } else {
                         alarmManager.set(alarmType, effectiveTrigger, pendingIntent)

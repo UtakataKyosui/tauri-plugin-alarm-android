@@ -18,7 +18,9 @@ import app.tauri.plugin.JSArray
 import app.tauri.plugin.JSObject
 import app.tauri.plugin.Invoke
 import app.tauri.plugin.Plugin
+import app.tauri.plugin.Plugin
 import org.json.JSONObject
+import java.util.Calendar
 
 @InvokeArg
 class SetAlarmArgs {
@@ -34,6 +36,7 @@ class SetAlarmArgs {
     var snoozeEnabled: Boolean? = null
     var snoozeDurationMs: Long? = null
     var snoozeLabel: String? = null
+    var repeatDaysOfWeek: ArrayList<Int>? = null
 }
 
 @InvokeArg
@@ -81,8 +84,34 @@ class AlermPlugin(private val activity: Activity) : Plugin(activity) {
         val allowWhileIdle = args.allowWhileIdle ?: true
         val alarmTypeName = args.alarmType ?: "RTC_WAKEUP"
         val alarmType = parseAlarmType(alarmTypeName)
-        val triggerAtMs = args.triggerAtMs
         val repeatIntervalMs = args.repeatIntervalMs
+        // 空配列は null と同等に扱う（null 正規化）
+        val normalizedDays: List<Int>? = args.repeatDaysOfWeek?.takeIf { it.isNotEmpty() }
+
+        // repeatIntervalMs と repeatDaysOfWeek の両立は禁止
+        if (repeatIntervalMs != null && normalizedDays != null) {
+            invoke.reject("repeatIntervalMs と repeatDaysOfWeek は同時に指定できません")
+            return
+        }
+
+        // 曜日繰り返しの場合、発火時刻を次の指定曜日に必ず補正する
+        val now = System.currentTimeMillis()
+        val triggerAtMs = if (normalizedDays != null) {
+            val dayOfWeekAtTrigger = Calendar.getInstance().apply { timeInMillis = args.triggerAtMs }
+                .get(Calendar.DAY_OF_WEEK) - 1
+            if (dayOfWeekAtTrigger in normalizedDays && args.triggerAtMs > now) {
+                args.triggerAtMs
+            } else {
+                try {
+                    nextTriggerForDaysOfWeek(args.triggerAtMs, normalizedDays, now)
+                } catch (e: IllegalArgumentException) {
+                    invoke.reject("無効な repeatDaysOfWeek パラメータ: ${e.message}")
+                    return
+                }
+            }
+        } else {
+            args.triggerAtMs
+        }
 
         val snoozeEnabled = args.snoozeEnabled ?: false
         val snoozeDurationMs = clampSnoozeDuration(args.snoozeDurationMs)
@@ -96,7 +125,12 @@ class AlermPlugin(private val activity: Activity) : Plugin(activity) {
             putExtra("snoozeDurationMs", snoozeDurationMs)
             putExtra("snoozeLabel", snoozeLabel)
             putExtra("alarmType", alarmTypeName)
+            putExtra("exact", exact)
             putExtra("allowWhileIdle", allowWhileIdle)
+            if (normalizedDays != null) {
+                putExtra("repeatDaysOfWeek", normalizedDays.toIntArray())
+                putExtra("originalTriggerAtMs", args.triggerAtMs)
+            }
         }
         val pendingIntent = PendingIntent.getBroadcast(
             activity, args.id, intent,
@@ -128,11 +162,16 @@ class AlermPlugin(private val activity: Activity) : Plugin(activity) {
             put("triggerAtMs", triggerAtMs)
             put("alarmType", alarmTypeName)
             put("exact", exact)
+            put("allowWhileIdle", allowWhileIdle)
             put("repeatIntervalMs", repeatIntervalMs)
             put("soundUri", args.soundUri)
             put("snoozeEnabled", snoozeEnabled)
             put("snoozeDurationMs", snoozeDurationMs)
             put("snoozeLabel", snoozeLabel)
+            if (normalizedDays != null) {
+                put("repeatDaysOfWeek", org.json.JSONArray(normalizedDays))
+                put("originalTriggerAtMs", args.triggerAtMs)
+            }
         }
         saveAlarm(activity, args.id, alarmInfo)
 
@@ -148,6 +187,9 @@ class AlermPlugin(private val activity: Activity) : Plugin(activity) {
         ret.put("snoozeEnabled", snoozeEnabled)
         ret.put("snoozeDurationMs", snoozeDurationMs)
         ret.put("snoozeLabel", snoozeLabel)
+        if (normalizedDays != null) {
+            ret.put("repeatDaysOfWeek", JSArray.from(normalizedDays))
+        }
         invoke.resolve(ret)
     }
 
@@ -201,6 +243,9 @@ class AlermPlugin(private val activity: Activity) : Plugin(activity) {
             if (!alarm.isNull("snoozeEnabled")) obj.put("snoozeEnabled", alarm.getBoolean("snoozeEnabled"))
             if (!alarm.isNull("snoozeDurationMs")) obj.put("snoozeDurationMs", alarm.getLong("snoozeDurationMs"))
             if (!alarm.isNull("snoozeLabel")) obj.put("snoozeLabel", alarm.getString("snoozeLabel"))
+            if (alarm.has("repeatDaysOfWeek") && !alarm.isNull("repeatDaysOfWeek")) {
+                obj.put("repeatDaysOfWeek", JSArray.from(alarm.getJSONArray("repeatDaysOfWeek")))
+            }
             arr.put(obj)
         }
         val ret = JSObject()
