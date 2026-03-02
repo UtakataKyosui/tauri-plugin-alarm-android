@@ -31,6 +31,9 @@ class SetAlarmArgs {
     var allowWhileIdle: Boolean? = null
     var repeatIntervalMs: Long? = null
     var soundUri: String? = null
+    var snoozeEnabled: Boolean? = null
+    var snoozeDurationMs: Long? = null
+    var snoozeLabel: String? = null
     var repeatDaysOfWeek: ArrayList<Int>? = null
 }
 
@@ -46,6 +49,8 @@ class AlermPlugin(private val activity: Activity) : Plugin(activity) {
         const val PREFS_NAME = "tauri_alerm_alarms"
         // v2: setSound(null, null) を反映するためチャンネル ID を変更（Android は既存チャンネルの設定変更を無視するため）
         const val CHANNEL_ID = "tauri_alerm_channel_v2"
+        const val DEFAULT_SNOOZE_DURATION_MS = 300_000L
+        const val DEFAULT_SNOOZE_LABEL = "スヌーズ"
     }
 
     override fun load(webView: WebView) {
@@ -101,11 +106,17 @@ class AlermPlugin(private val activity: Activity) : Plugin(activity) {
             args.triggerAtMs
         }
 
+        val snoozeEnabled = args.snoozeEnabled ?: false
+        val snoozeDurationMs = clampSnoozeDuration(args.snoozeDurationMs)
+        val snoozeLabel = args.snoozeLabel ?: DEFAULT_SNOOZE_LABEL
         val intent = Intent(activity, AlarmReceiver::class.java).apply {
             putExtra("alarmId", args.id)
             putExtra("title", args.title)
             putExtra("message", args.message ?: "")
             if (args.soundUri != null) putExtra("soundUri", args.soundUri)
+            putExtra("snoozeEnabled", snoozeEnabled)
+            putExtra("snoozeDurationMs", snoozeDurationMs)
+            putExtra("snoozeLabel", snoozeLabel)
             putExtra("alarmType", alarmTypeName)
             putExtra("exact", exact)
             putExtra("allowWhileIdle", allowWhileIdle)
@@ -126,34 +137,7 @@ class AlermPlugin(private val activity: Activity) : Plugin(activity) {
                 // 繰り返しアラーム（Android 4.4+ では不正確）
                 alarmManager.setInexactRepeating(alarmType, triggerAtMs, repeatIntervalMs, pendingIntent)
             }
-            exact -> {
-                when {
-                    Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-                        if (alarmManager.canScheduleExactAlarms()) {
-                            if (allowWhileIdle) {
-                                alarmManager.setExactAndAllowWhileIdle(alarmType, triggerAtMs, pendingIntent)
-                            } else {
-                                alarmManager.setExact(alarmType, triggerAtMs, pendingIntent)
-                            }
-                        } else {
-                            // パーミッション未付与 → 不正確なアラームにフォールバック
-                            if (allowWhileIdle) {
-                                alarmManager.setAndAllowWhileIdle(alarmType, triggerAtMs, pendingIntent)
-                            } else {
-                                alarmManager.set(alarmType, triggerAtMs, pendingIntent)
-                            }
-                        }
-                    }
-                    Build.VERSION.SDK_INT >= Build.VERSION_CODES.M -> {
-                        if (allowWhileIdle) {
-                            alarmManager.setExactAndAllowWhileIdle(alarmType, triggerAtMs, pendingIntent)
-                        } else {
-                            alarmManager.setExact(alarmType, triggerAtMs, pendingIntent)
-                        }
-                    }
-                    else -> alarmManager.setExact(alarmType, triggerAtMs, pendingIntent)
-                }
-            }
+            exact -> scheduleExactAlarm(alarmManager, alarmType, triggerAtMs, pendingIntent, allowWhileIdle)
             else -> {
                 if (allowWhileIdle && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                     alarmManager.setAndAllowWhileIdle(alarmType, triggerAtMs, pendingIntent)
@@ -174,6 +158,9 @@ class AlermPlugin(private val activity: Activity) : Plugin(activity) {
             put("allowWhileIdle", allowWhileIdle)
             put("repeatIntervalMs", repeatIntervalMs)
             put("soundUri", args.soundUri)
+            put("snoozeEnabled", snoozeEnabled)
+            put("snoozeDurationMs", snoozeDurationMs)
+            put("snoozeLabel", snoozeLabel)
             if (normalizedDays != null) {
                 put("repeatDaysOfWeek", org.json.JSONArray(normalizedDays))
                 put("originalTriggerAtMs", args.triggerAtMs)
@@ -190,6 +177,9 @@ class AlermPlugin(private val activity: Activity) : Plugin(activity) {
         ret.put("exact", exact)
         if (repeatIntervalMs != null) ret.put("repeatIntervalMs", repeatIntervalMs)
         if (args.soundUri != null) ret.put("soundUri", args.soundUri)
+        ret.put("snoozeEnabled", snoozeEnabled)
+        ret.put("snoozeDurationMs", snoozeDurationMs)
+        ret.put("snoozeLabel", snoozeLabel)
         if (normalizedDays != null) {
             ret.put("repeatDaysOfWeek", JSArray.from(normalizedDays))
         }
@@ -199,16 +189,30 @@ class AlermPlugin(private val activity: Activity) : Plugin(activity) {
     @Command
     fun cancelAlarm(invoke: Invoke) {
         val args = invoke.parseArgs(CancelAlarmArgs::class.java)
+        val alarmManager = activity.getSystemService(Context.ALARM_SERVICE) as AlarmManager
 
+        // 通常アラームの PendingIntent をキャンセル
         val intent = Intent(activity, AlarmReceiver::class.java)
         val pendingIntent = PendingIntent.getBroadcast(
             activity, args.id, intent,
             buildPendingIntentFlags(PendingIntent.FLAG_NO_CREATE)
         )
-        val alarmManager = activity.getSystemService(Context.ALARM_SERVICE) as AlarmManager
         if (pendingIntent != null) {
             alarmManager.cancel(pendingIntent)
             pendingIntent.cancel()
+        }
+
+        // スヌーズで再スケジュールされた PendingIntent も併せてキャンセル
+        val snoozeIntent = Intent(activity, AlarmReceiver::class.java).apply {
+            action = SNOOZE_ALARM_ACTION
+        }
+        val snoozePendingIntent = PendingIntent.getBroadcast(
+            activity, args.id, snoozeIntent,
+            buildPendingIntentFlags(PendingIntent.FLAG_NO_CREATE)
+        )
+        if (snoozePendingIntent != null) {
+            alarmManager.cancel(snoozePendingIntent)
+            snoozePendingIntent.cancel()
         }
 
         removeAlarm(activity, args.id)
@@ -229,6 +233,9 @@ class AlermPlugin(private val activity: Activity) : Plugin(activity) {
             obj.put("exact", alarm.getBoolean("exact"))
             if (!alarm.isNull("repeatIntervalMs")) obj.put("repeatIntervalMs", alarm.getLong("repeatIntervalMs"))
             if (!alarm.isNull("soundUri")) obj.put("soundUri", alarm.getString("soundUri"))
+            if (!alarm.isNull("snoozeEnabled")) obj.put("snoozeEnabled", alarm.getBoolean("snoozeEnabled"))
+            if (!alarm.isNull("snoozeDurationMs")) obj.put("snoozeDurationMs", alarm.getLong("snoozeDurationMs"))
+            if (!alarm.isNull("snoozeLabel")) obj.put("snoozeLabel", alarm.getString("snoozeLabel"))
             if (alarm.has("repeatDaysOfWeek") && !alarm.isNull("repeatDaysOfWeek")) {
                 obj.put("repeatDaysOfWeek", alarm.getJSONArray("repeatDaysOfWeek"))
             }

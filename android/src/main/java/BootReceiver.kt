@@ -5,8 +5,6 @@ import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.os.Build
-
 /**
  * 端末再起動後にアラームを復元する BroadcastReceiver。
  * AlarmManager のアラームはデバイス再起動で消えるため、
@@ -47,15 +45,21 @@ class BootReceiver : BroadcastReceiver() {
             val exact = alarm.optBoolean("exact", true)
             val allowWhileIdle = alarm.optBoolean("allowWhileIdle", true)
             val soundUri = alarm.optString("soundUri", null)
+            val snoozeEnabled = alarm.optBoolean("snoozeEnabled", false)
+            val snoozeDurationMs = alarm.optLong("snoozeDurationMs", AlermPlugin.DEFAULT_SNOOZE_DURATION_MS)
+            val snoozeLabel = alarm.optString("snoozeLabel", AlermPlugin.DEFAULT_SNOOZE_LABEL)
 
             val alarmIntent = Intent(context, AlarmReceiver::class.java).apply {
                 putExtra("alarmId", id)
                 putExtra("title", title)
                 putExtra("message", message)
-                if (soundUri != null) putExtra("soundUri", soundUri)
                 putExtra("alarmType", alarmTypeName)
-                putExtra("exact", exact)
                 putExtra("allowWhileIdle", allowWhileIdle)
+                if (soundUri != null) putExtra("soundUri", soundUri)
+                putExtra("snoozeEnabled", snoozeEnabled)
+                putExtra("snoozeDurationMs", snoozeDurationMs)
+                putExtra("snoozeLabel", snoozeLabel)
+                putExtra("exact", exact)
                 if (repeatDaysOfWeek != null) {
                     putExtra("repeatDaysOfWeek", repeatDaysOfWeek.toIntArray())
                     putExtra("originalTriggerAtMs", originalTriggerAtMs)

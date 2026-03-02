@@ -18,6 +18,12 @@ export interface AlarmInfo {
   repeatIntervalMs?: number
   /** アラーム音声ファイルのパス（assets 内）。未指定時はデフォルトアラーム音 */
   soundUri?: string
+  /** スヌーズを有効にするか（デフォルト: false） */
+  snoozeEnabled?: boolean
+  /** スヌーズ時間（ミリ秒）。デフォルト: 300_000（5分） */
+  snoozeDurationMs?: number
+  /** スヌーズボタンのラベル（デフォルト: "スヌーズ"） */
+  snoozeLabel?: string
   /** 繰り返す曜日リスト（0=日, 1=月, ..., 6=土）。未設定なら一度だけ発火。
    *  例: [1, 3, 5] → 月・水・金に繰り返す */
   repeatDaysOfWeek?: number[]
@@ -74,6 +80,21 @@ export interface SetAlarmOptions {
    * 省略時はシステムのデフォルトアラーム音を使用する。
    */
   soundUri?: string
+  /**
+   * スヌーズを有効にするか（デフォルト: false）
+   * true の場合、通知にスヌーズボタンが表示される。
+   */
+  snoozeEnabled?: boolean
+  /**
+   * スヌーズ時間（ミリ秒）
+   * 省略時は 300_000（5分）。
+   */
+  snoozeDurationMs?: number
+  /**
+   * スヌーズボタンのラベル
+   * 省略時は "スヌーズ"。
+   */
+  snoozeLabel?: string
   /**
    * 繰り返す曜日リスト（0=日, 1=月, ..., 6=土）
    * 省略すると一度だけ発火する。

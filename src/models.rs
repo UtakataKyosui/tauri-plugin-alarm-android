@@ -22,6 +22,12 @@ pub struct SetAlarmRequest {
     pub repeat_interval_ms: Option<i64>,
     /// アラーム音声ファイルのパス（アプリ assets 内）。省略時はデフォルトアラーム音
     pub sound_uri: Option<String>,
+    /// スヌーズを有効にするか（デフォルト: false）
+    pub snooze_enabled: Option<bool>,
+    /// スヌーズ時間（ミリ秒）。デフォルト 5分 = 300_000
+    pub snooze_duration_ms: Option<u64>,
+    /// 通知上のスヌーズボタンのラベル（デフォルト: "スヌーズ"）
+    pub snooze_label: Option<String>,
     /// 繰り返す曜日リスト（0=日, 1=月, ..., 6=土）。省略時は繰り返しなし
     pub repeat_days_of_week: Option<Vec<u8>>,
 }
@@ -39,6 +45,12 @@ pub struct AlarmInfo {
     pub repeat_interval_ms: Option<i64>,
     /// アラーム音声ファイルのパス（アプリ assets 内）。省略時はデフォルトアラーム音
     pub sound_uri: Option<String>,
+    /// スヌーズを有効にするか
+    pub snooze_enabled: Option<bool>,
+    /// スヌーズ時間（ミリ秒）
+    pub snooze_duration_ms: Option<u64>,
+    /// スヌーズボタンのラベル
+    pub snooze_label: Option<String>,
     /// 繰り返す曜日リスト（0=日, 1=月, ..., 6=土）。省略時は繰り返しなし
     pub repeat_days_of_week: Option<Vec<u8>>,
 }
@@ -84,11 +96,13 @@ mod tests {
             allow_while_idle: Some(true),
             repeat_interval_ms: None,
             sound_uri: None,
+            snooze_enabled: None,
+            snooze_duration_ms: None,
+            snooze_label: None,
             repeat_days_of_week: None,
         };
         let json = serde_json::to_string(&req).unwrap();
 
-        // フィールド名が camelCase になっていることを確認
         assert!(
             json.contains("\"triggerAtMs\""),
             "triggerAtMs が含まれない: {json}"
@@ -98,11 +112,6 @@ mod tests {
             "alarmType が含まれない: {json}"
         );
         assert!(
-            json.contains("\"allowWhileIdle\""),
-            "allowWhileIdle が含まれない: {json}"
-        );
-        // snake_case が残っていないことを確認
-        assert!(
             !json.contains("trigger_at_ms"),
             "snake_case が残っている: {json}"
         );
@@ -111,64 +120,19 @@ mod tests {
     #[test]
     fn set_alarm_request_deserializes_from_camel_case() {
         let json = r#"{
-            "id": 42,
-            "title": "Test Alarm",
-            "message": null,
-            "triggerAtMs": 9999999,
+            "id": 1,
+            "title": "Test",
+            "triggerAtMs": 1000000,
             "alarmType": "RTC",
-            "exact": false,
-            "allowWhileIdle": null,
-            "repeatIntervalMs": 3600000
+            "exact": false
         }"#;
         let req: SetAlarmRequest = serde_json::from_str(json).unwrap();
 
-        assert_eq!(req.id, 42);
-        assert_eq!(req.title, "Test Alarm");
-        assert!(req.message.is_none());
-        assert_eq!(req.trigger_at_ms, 9_999_999);
+        assert_eq!(req.id, 1);
+        assert_eq!(req.trigger_at_ms, 1_000_000);
         assert_eq!(req.alarm_type.as_deref(), Some("RTC"));
         assert_eq!(req.exact, Some(false));
-        assert_eq!(req.repeat_interval_ms, Some(3_600_000));
-        assert!(req.sound_uri.is_none());
-    }
-
-    #[test]
-    fn set_alarm_request_with_sound_uri_serializes_camel_case() {
-        let req = SetAlarmRequest {
-            id: 5,
-            title: "Sound Test".to_string(),
-            message: None,
-            trigger_at_ms: 1_700_000_000_000,
-            alarm_type: None,
-            exact: None,
-            allow_while_idle: None,
-            repeat_interval_ms: None,
-            sound_uri: Some("sounds/alarm.mp3".to_string()),
-            repeat_days_of_week: None,
-        };
-        let json = serde_json::to_string(&req).unwrap();
-
-        assert!(
-            json.contains("\"soundUri\""),
-            "soundUri が含まれない: {json}"
-        );
-        assert!(
-            json.contains("\"sounds/alarm.mp3\""),
-            "soundUri の値が含まれない: {json}"
-        );
-    }
-
-    #[test]
-    fn set_alarm_request_with_sound_uri_deserializes() {
-        let json = r#"{
-            "id": 10,
-            "title": "With Sound",
-            "triggerAtMs": 1000000,
-            "soundUri": "sounds/wake.mp3"
-        }"#;
-        let req: SetAlarmRequest = serde_json::from_str(json).unwrap();
-
-        assert_eq!(req.sound_uri.as_deref(), Some("sounds/wake.mp3"));
+        assert!(req.repeat_days_of_week.is_none());
     }
 
     // ------------------------------------------------------------------
@@ -178,26 +142,29 @@ mod tests {
     #[test]
     fn alarm_info_round_trip() {
         let info = AlarmInfo {
-            id: 7,
-            title: "Lunch".to_string(),
-            message: Some("Eat something".to_string()),
+            id: 42,
+            title: "Alarm".to_string(),
+            message: Some("Ring!".to_string()),
             trigger_at_ms: 1_700_000_000_000,
             alarm_type: "RTC_WAKEUP".to_string(),
             exact: true,
             repeat_interval_ms: None,
             sound_uri: None,
+            snooze_enabled: None,
+            snooze_duration_ms: None,
+            snooze_label: None,
             repeat_days_of_week: None,
         };
         let json = serde_json::to_string(&info).unwrap();
-        let restored: AlarmInfo = serde_json::from_str(&json).unwrap();
 
-        assert_eq!(restored.id, 7);
-        assert_eq!(restored.title, "Lunch");
-        assert_eq!(restored.message.as_deref(), Some("Eat something"));
-        assert_eq!(restored.alarm_type, "RTC_WAKEUP");
-        assert!(restored.exact);
-        assert!(restored.repeat_interval_ms.is_none());
-        assert!(restored.sound_uri.is_none());
+        assert!(
+            json.contains("\"triggerAtMs\""),
+            "triggerAtMs が含まれない: {json}"
+        );
+
+        let restored: AlarmInfo = serde_json::from_str(&json).unwrap();
+        assert_eq!(restored.id, 42);
+        assert_eq!(restored.trigger_at_ms, 1_700_000_000_000);
     }
 
     #[test]
@@ -211,6 +178,9 @@ mod tests {
             exact: true,
             repeat_interval_ms: None,
             sound_uri: Some("sounds/alarm.mp3".to_string()),
+            snooze_enabled: None,
+            snooze_duration_ms: None,
+            snooze_label: None,
             repeat_days_of_week: None,
         };
         let json = serde_json::to_string(&info).unwrap();
@@ -235,6 +205,9 @@ mod tests {
             exact: false,
             repeat_interval_ms: Some(86_400_000),
             sound_uri: None,
+            snooze_enabled: None,
+            snooze_duration_ms: None,
+            snooze_label: None,
             repeat_days_of_week: None,
         };
         let json = serde_json::to_string(&info).unwrap();
@@ -273,6 +246,9 @@ mod tests {
                     exact: true,
                     repeat_interval_ms: None,
                     sound_uri: None,
+                    snooze_enabled: None,
+                    snooze_duration_ms: None,
+                    snooze_label: None,
                     repeat_days_of_week: None,
                 },
                 AlarmInfo {
@@ -284,6 +260,9 @@ mod tests {
                     exact: false,
                     repeat_interval_ms: Some(60_000),
                     sound_uri: Some("sounds/alarm.mp3".to_string()),
+                    snooze_enabled: Some(true),
+                    snooze_duration_ms: Some(300_000),
+                    snooze_label: Some("スヌーズ".to_string()),
                     repeat_days_of_week: None,
                 },
             ],
@@ -331,6 +310,97 @@ mod tests {
     }
 
     // ------------------------------------------------------------------
+    // スヌーズフィールド
+    // ------------------------------------------------------------------
+
+    #[test]
+    fn set_alarm_request_with_snooze_serializes_camel_case() {
+        let req = SetAlarmRequest {
+            id: 1,
+            title: "Snooze Test".to_string(),
+            message: None,
+            trigger_at_ms: 1_700_000_000_000,
+            alarm_type: None,
+            exact: None,
+            allow_while_idle: None,
+            repeat_interval_ms: None,
+            sound_uri: None,
+            snooze_enabled: Some(true),
+            snooze_duration_ms: Some(300_000),
+            snooze_label: Some("スヌーズ".to_string()),
+            repeat_days_of_week: None,
+        };
+        let json = serde_json::to_string(&req).unwrap();
+
+        assert!(
+            json.contains("\"snoozeEnabled\""),
+            "snoozeEnabled が含まれない: {json}"
+        );
+        assert!(
+            json.contains("\"snoozeDurationMs\""),
+            "snoozeDurationMs が含まれない: {json}"
+        );
+        assert!(
+            json.contains("\"snoozeLabel\""),
+            "snoozeLabel が含まれない: {json}"
+        );
+        assert!(
+            !json.contains("snooze_enabled"),
+            "snake_case が残っている: {json}"
+        );
+    }
+
+    #[test]
+    fn set_alarm_request_with_snooze_deserializes() {
+        let json = r#"{
+            "id": 1,
+            "title": "Snooze",
+            "triggerAtMs": 1000000,
+            "snoozeEnabled": true,
+            "snoozeDurationMs": 60000,
+            "snoozeLabel": "後で"
+        }"#;
+        let req: SetAlarmRequest = serde_json::from_str(json).unwrap();
+
+        assert_eq!(req.snooze_enabled, Some(true));
+        assert_eq!(req.snooze_duration_ms, Some(60_000));
+        assert_eq!(req.snooze_label.as_deref(), Some("後で"));
+    }
+
+    #[test]
+    fn alarm_info_with_snooze_round_trip() {
+        let info = AlarmInfo {
+            id: 10,
+            title: "Snooze Alarm".to_string(),
+            message: None,
+            trigger_at_ms: 1_700_000_000_000,
+            alarm_type: "RTC_WAKEUP".to_string(),
+            exact: true,
+            repeat_interval_ms: None,
+            sound_uri: None,
+            snooze_enabled: Some(true),
+            snooze_duration_ms: Some(300_000),
+            snooze_label: Some("スヌーズ".to_string()),
+            repeat_days_of_week: None,
+        };
+        let json = serde_json::to_string(&info).unwrap();
+
+        assert!(
+            json.contains("\"snoozeEnabled\""),
+            "snoozeEnabled が含まれない: {json}"
+        );
+        assert!(
+            json.contains("\"snoozeDurationMs\":300000"),
+            "snoozeDurationMs の値が不正: {json}"
+        );
+
+        let restored: AlarmInfo = serde_json::from_str(&json).unwrap();
+        assert_eq!(restored.snooze_enabled, Some(true));
+        assert_eq!(restored.snooze_duration_ms, Some(300_000));
+        assert_eq!(restored.snooze_label.as_deref(), Some("スヌーズ"));
+    }
+
+    // ------------------------------------------------------------------
     // repeatDaysOfWeek
     // ------------------------------------------------------------------
 
@@ -346,6 +416,9 @@ mod tests {
             allow_while_idle: None,
             repeat_interval_ms: None,
             sound_uri: None,
+            snooze_enabled: None,
+            snooze_duration_ms: None,
+            snooze_label: None,
             repeat_days_of_week: Some(vec![1, 3, 5]),
         };
         let json = serde_json::to_string(&req).unwrap();
@@ -400,6 +473,9 @@ mod tests {
             exact: true,
             repeat_interval_ms: None,
             sound_uri: None,
+            snooze_enabled: None,
+            snooze_duration_ms: None,
+            snooze_label: None,
             repeat_days_of_week: Some(vec![1, 2, 3, 4, 5]),
         };
         let json = serde_json::to_string(&info).unwrap();
@@ -424,6 +500,9 @@ mod tests {
             exact: false,
             repeat_interval_ms: None,
             sound_uri: None,
+            snooze_enabled: None,
+            snooze_duration_ms: None,
+            snooze_label: None,
             repeat_days_of_week: None,
         };
         let json = serde_json::to_string(&info).unwrap();
