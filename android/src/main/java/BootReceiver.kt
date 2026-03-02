@@ -30,14 +30,21 @@ class BootReceiver : BroadcastReceiver() {
             val triggerAtMs = alarm.getLong("triggerAtMs")
             val repeatIntervalMs = if (alarm.isNull("repeatIntervalMs")) null
                                    else alarm.getLong("repeatIntervalMs")
+            val repeatDaysOfWeek: List<Int>? = if (alarm.has("repeatDaysOfWeek") && !alarm.isNull("repeatDaysOfWeek")) {
+                val arr = alarm.getJSONArray("repeatDaysOfWeek")
+                List(arr.length()) { arr.getInt(it) }
+            } else null
+            val originalTriggerAtMs = alarm.optLong("originalTriggerAtMs", triggerAtMs)
 
-            // 一度きりのアラームで既に過去のものはスキップ
-            if (triggerAtMs <= now && repeatIntervalMs == null) continue
+            // 一度きりのアラームで既に過去のものはスキップ（曜日繰り返しは常に復元）
+            if (triggerAtMs <= now && repeatIntervalMs == null && repeatDaysOfWeek == null) continue
 
             val title = alarm.optString("title", "Alarm")
             val message = alarm.optString("message", "")
-            val alarmType = parseAlarmType(alarm.optString("alarmType", "RTC_WAKEUP"))
+            val alarmTypeName = alarm.optString("alarmType", "RTC_WAKEUP")
+            val alarmType = parseAlarmType(alarmTypeName)
             val exact = alarm.optBoolean("exact", true)
+            val allowWhileIdle = alarm.optBoolean("allowWhileIdle", true)
             val soundUri = alarm.optString("soundUri", null)
 
             val alarmIntent = Intent(context, AlarmReceiver::class.java).apply {
@@ -45,14 +52,26 @@ class BootReceiver : BroadcastReceiver() {
                 putExtra("title", title)
                 putExtra("message", message)
                 if (soundUri != null) putExtra("soundUri", soundUri)
+                putExtra("alarmType", alarmTypeName)
+                putExtra("exact", exact)
+                putExtra("allowWhileIdle", allowWhileIdle)
+                if (repeatDaysOfWeek != null) {
+                    putExtra("repeatDaysOfWeek", repeatDaysOfWeek.toIntArray())
+                    putExtra("originalTriggerAtMs", originalTriggerAtMs)
+                }
             }
             val pendingIntent = PendingIntent.getBroadcast(
                 context, id, alarmIntent,
                 buildPendingIntentFlags(PendingIntent.FLAG_UPDATE_CURRENT)
             )
 
-            // 繰り返しアラームは次回発火時刻を再計算する
-            val effectiveTrigger = calculateEffectiveTriggerTime(triggerAtMs, repeatIntervalMs, now)
+            // 次回発火時刻を計算する
+            val effectiveTrigger = when {
+                repeatDaysOfWeek != null ->
+                    nextTriggerForDaysOfWeek(originalTriggerAtMs, repeatDaysOfWeek, now)
+                else ->
+                    calculateEffectiveTriggerTime(triggerAtMs, repeatIntervalMs, now)
+            }
 
             when {
                 repeatIntervalMs != null -> {

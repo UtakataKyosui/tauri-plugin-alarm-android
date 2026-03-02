@@ -5,6 +5,7 @@ import android.app.PendingIntent
 import android.content.Context
 import android.os.Build
 import org.json.JSONObject
+import java.util.Calendar
 
 /**
  * アラームタイプ名を AlarmManager の定数に変換する。
@@ -54,6 +55,58 @@ internal fun getStoredAlarms(context: Context): List<JSONObject> {
         result.add(all.getJSONObject(keys.next()))
     }
     return result
+}
+
+/**
+ * 指定した曜日リストのうち、fromMs 以降で最も近い発火時刻を返す。
+ * 時・分・秒・ミリ秒は triggerAtMs の値を引き継ぐ。
+ *
+ * @param triggerAtMs 発火時刻の時・分・秒を取得するベース時刻（Unix ms）
+ * @param days アプリ曜日値 (0=日, 1=月, ..., 6=土)
+ * @param fromMs この時刻より後の発火時刻を探す（デフォルト: 現在時刻）
+ * @throws IllegalArgumentException days が空の場合
+ */
+internal fun nextTriggerForDaysOfWeek(
+    triggerAtMs: Long,
+    days: List<Int>,
+    fromMs: Long = System.currentTimeMillis(),
+): Long {
+    require(days.isNotEmpty()) { "days must not be empty" }
+
+    val base = Calendar.getInstance().apply { timeInMillis = triggerAtMs }
+    val baseHour = base.get(Calendar.HOUR_OF_DAY)
+    val baseMinute = base.get(Calendar.MINUTE)
+    val baseSecond = base.get(Calendar.SECOND)
+    val baseMs = base.get(Calendar.MILLISECOND)
+
+    // 0〜6日先を順に試して、候補曜日が days に含まれかつ fromMs より未来であれば返す
+    for (offset in 0..6) {
+        val candidate = Calendar.getInstance().apply {
+            timeInMillis = fromMs
+            add(Calendar.DAY_OF_YEAR, offset)
+            set(Calendar.HOUR_OF_DAY, baseHour)
+            set(Calendar.MINUTE, baseMinute)
+            set(Calendar.SECOND, baseSecond)
+            set(Calendar.MILLISECOND, baseMs)
+        }
+        // Calendar.DAY_OF_WEEK は 1=日〜7=土、アプリ曜日 = DAY_OF_WEEK - 1
+        val appDayOfWeek = candidate.get(Calendar.DAY_OF_WEEK) - 1
+        if (appDayOfWeek in days && candidate.timeInMillis > fromMs) {
+            return candidate.timeInMillis
+        }
+    }
+
+    // 7日先まで見ても見つからない場合（同一曜日のみ指定で今日の時刻が fromMs より前のケース）は
+    // 来週同曜日（7日後）を返す
+    val fallback = Calendar.getInstance().apply {
+        timeInMillis = fromMs
+        add(Calendar.DAY_OF_YEAR, 7)
+        set(Calendar.HOUR_OF_DAY, baseHour)
+        set(Calendar.MINUTE, baseMinute)
+        set(Calendar.SECOND, baseSecond)
+        set(Calendar.MILLISECOND, baseMs)
+    }
+    return fallback.timeInMillis
 }
 
 /**

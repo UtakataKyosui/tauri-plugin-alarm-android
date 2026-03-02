@@ -18,6 +18,9 @@ export interface AlarmInfo {
   repeatIntervalMs?: number
   /** アラーム音声ファイルのパス（assets 内）。未指定時はデフォルトアラーム音 */
   soundUri?: string
+  /** 繰り返す曜日リスト（0=日, 1=月, ..., 6=土）。未設定なら一度だけ発火。
+   *  例: [1, 3, 5] → 月・水・金に繰り返す */
+  repeatDaysOfWeek?: number[]
 }
 
 /** Android AlarmManager のアラームタイプ */
@@ -71,6 +74,12 @@ export interface SetAlarmOptions {
    * 省略時はシステムのデフォルトアラーム音を使用する。
    */
   soundUri?: string
+  /**
+   * 繰り返す曜日リスト（0=日, 1=月, ..., 6=土）
+   * 省略すると一度だけ発火する。
+   * 例: [1, 3, 5] → 月・水・金に繰り返す
+   */
+  repeatDaysOfWeek?: number[]
 }
 
 /** checkExactAlarmPermission() のレスポンス */

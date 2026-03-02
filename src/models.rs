@@ -22,6 +22,8 @@ pub struct SetAlarmRequest {
     pub repeat_interval_ms: Option<i64>,
     /// アラーム音声ファイルのパス（アプリ assets 内）。省略時はデフォルトアラーム音
     pub sound_uri: Option<String>,
+    /// 繰り返す曜日リスト（0=日, 1=月, ..., 6=土）。省略時は繰り返しなし
+    pub repeat_days_of_week: Option<Vec<u8>>,
 }
 
 /// スケジュール済みアラームの情報
@@ -37,6 +39,8 @@ pub struct AlarmInfo {
     pub repeat_interval_ms: Option<i64>,
     /// アラーム音声ファイルのパス（アプリ assets 内）。省略時はデフォルトアラーム音
     pub sound_uri: Option<String>,
+    /// 繰り返す曜日リスト（0=日, 1=月, ..., 6=土）。省略時は繰り返しなし
+    pub repeat_days_of_week: Option<Vec<u8>>,
 }
 
 /// アラームをキャンセルするリクエスト
@@ -80,6 +84,7 @@ mod tests {
             allow_while_idle: Some(true),
             repeat_interval_ms: None,
             sound_uri: None,
+            repeat_days_of_week: None,
         };
         let json = serde_json::to_string(&req).unwrap();
 
@@ -139,6 +144,7 @@ mod tests {
             allow_while_idle: None,
             repeat_interval_ms: None,
             sound_uri: Some("sounds/alarm.mp3".to_string()),
+            repeat_days_of_week: None,
         };
         let json = serde_json::to_string(&req).unwrap();
 
@@ -180,6 +186,7 @@ mod tests {
             exact: true,
             repeat_interval_ms: None,
             sound_uri: None,
+            repeat_days_of_week: None,
         };
         let json = serde_json::to_string(&info).unwrap();
         let restored: AlarmInfo = serde_json::from_str(&json).unwrap();
@@ -204,6 +211,7 @@ mod tests {
             exact: true,
             repeat_interval_ms: None,
             sound_uri: Some("sounds/alarm.mp3".to_string()),
+            repeat_days_of_week: None,
         };
         let json = serde_json::to_string(&info).unwrap();
 
@@ -227,6 +235,7 @@ mod tests {
             exact: false,
             repeat_interval_ms: Some(86_400_000),
             sound_uri: None,
+            repeat_days_of_week: None,
         };
         let json = serde_json::to_string(&info).unwrap();
         let restored: AlarmInfo = serde_json::from_str(&json).unwrap();
@@ -264,6 +273,7 @@ mod tests {
                     exact: true,
                     repeat_interval_ms: None,
                     sound_uri: None,
+                    repeat_days_of_week: None,
                 },
                 AlarmInfo {
                     id: 2,
@@ -274,6 +284,7 @@ mod tests {
                     exact: false,
                     repeat_interval_ms: Some(60_000),
                     sound_uri: Some("sounds/alarm.mp3".to_string()),
+                    repeat_days_of_week: None,
                 },
             ],
         };
@@ -317,5 +328,107 @@ mod tests {
         let json = serde_json::to_string(&resp).unwrap();
         let restored: CheckPermissionResponse = serde_json::from_str(&json).unwrap();
         assert!(!restored.can_schedule_exact_alarms);
+    }
+
+    // ------------------------------------------------------------------
+    // repeatDaysOfWeek
+    // ------------------------------------------------------------------
+
+    #[test]
+    fn set_alarm_request_with_repeat_days_serializes_camel_case() {
+        let req = SetAlarmRequest {
+            id: 10,
+            title: "Weekly".to_string(),
+            message: None,
+            trigger_at_ms: 1_700_000_000_000,
+            alarm_type: None,
+            exact: None,
+            allow_while_idle: None,
+            repeat_interval_ms: None,
+            sound_uri: None,
+            repeat_days_of_week: Some(vec![1, 3, 5]),
+        };
+        let json = serde_json::to_string(&req).unwrap();
+
+        assert!(
+            json.contains("\"repeatDaysOfWeek\""),
+            "repeatDaysOfWeek が含まれない: {json}"
+        );
+        assert!(
+            json.contains("[1,3,5]"),
+            "曜日リストの値が含まれない: {json}"
+        );
+        assert!(
+            !json.contains("repeat_days_of_week"),
+            "snake_case が残っている: {json}"
+        );
+    }
+
+    #[test]
+    fn set_alarm_request_with_repeat_days_deserializes() {
+        let json = r#"{
+            "id": 20,
+            "title": "Mon-Wed-Fri",
+            "triggerAtMs": 1000000,
+            "repeatDaysOfWeek": [1, 3, 5]
+        }"#;
+        let req: SetAlarmRequest = serde_json::from_str(json).unwrap();
+
+        assert_eq!(req.repeat_days_of_week, Some(vec![1, 3, 5]));
+    }
+
+    #[test]
+    fn set_alarm_request_without_repeat_days_is_none() {
+        let json = r#"{
+            "id": 30,
+            "title": "OneShot",
+            "triggerAtMs": 1000000
+        }"#;
+        let req: SetAlarmRequest = serde_json::from_str(json).unwrap();
+
+        assert!(req.repeat_days_of_week.is_none());
+    }
+
+    #[test]
+    fn alarm_info_with_repeat_days_round_trip() {
+        let info = AlarmInfo {
+            id: 11,
+            title: "Weekly Mon-Fri".to_string(),
+            message: None,
+            trigger_at_ms: 1_700_000_000_000,
+            alarm_type: "RTC_WAKEUP".to_string(),
+            exact: true,
+            repeat_interval_ms: None,
+            sound_uri: None,
+            repeat_days_of_week: Some(vec![1, 2, 3, 4, 5]),
+        };
+        let json = serde_json::to_string(&info).unwrap();
+
+        assert!(
+            json.contains("\"repeatDaysOfWeek\""),
+            "repeatDaysOfWeek が含まれない: {json}"
+        );
+
+        let restored: AlarmInfo = serde_json::from_str(&json).unwrap();
+        assert_eq!(restored.repeat_days_of_week, Some(vec![1, 2, 3, 4, 5]));
+    }
+
+    #[test]
+    fn alarm_info_without_repeat_days_round_trip() {
+        let info = AlarmInfo {
+            id: 12,
+            title: "NoRepeat".to_string(),
+            message: None,
+            trigger_at_ms: 1_700_000_000_000,
+            alarm_type: "RTC".to_string(),
+            exact: false,
+            repeat_interval_ms: None,
+            sound_uri: None,
+            repeat_days_of_week: None,
+        };
+        let json = serde_json::to_string(&info).unwrap();
+        let restored: AlarmInfo = serde_json::from_str(&json).unwrap();
+
+        assert!(restored.repeat_days_of_week.is_none());
     }
 }
