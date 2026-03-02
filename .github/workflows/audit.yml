@@ -25,6 +25,10 @@ concurrency:
 jobs:
   audit:
     runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      checks: write
+      contents: read
     steps:
       - uses: actions/checkout@v4
       - uses: rustsec/audit-check@v1
